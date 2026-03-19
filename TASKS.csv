@@ -1,0 +1,415 @@
+title,description,priority,layer,gherkin_scenarios,acceptance_criteria
+"M-01-Ticket-01: Initialize Android Project Structure","Set up project structure with Kotlin, Jetpack Compose, Hilt, and Room dependencies. Configure build.gradle.kts files.",Medium,Infrastructure,"Scenario: Project builds successfully
+  Given all dependencies are configured in build.gradle.kts
+  When Gradle build runs
+  Then build must succeed without errors
+  And APK size must be ≤15MB
+
+Scenario: Hilt injection works
+  Given Hilt application class is configured
+  When app launches
+  Then Hilt must initialize without errors","[ ] Project builds successfully with Kotlin 1.9.20+
+[ ] Jetpack Compose BOM configured
+[ ] Room dependencies added (runtime, compiler, ktx)
+[ ] Hilt dependencies added (hilt-android, hilt-compiler)
+[ ] ML Kit dependencies added (barcode-scanning, text-recognition)
+[ ] WorkManager runtime added
+[ ] AndroidManifest.xml with CAMERA permission
+[ ] SmartNutriStockApp.kt created as Hilt Application class"
+"M-01-Ticket-02: Configure APK Build and Signing","Set up APK build configuration with signing, version management, and ProGuard/R8 rules for ML Kit.",Medium,Infrastructure,"Scenario: APK builds with correct signing
+  Given signing configuration is set up
+  When assembleRelease task runs
+  Then APK must be signed with correct certificate
+  And APK must be installable on XCover7
+
+Scenario: Version code increments correctly
+  Given versionName=""1.0.0"" and versionCode=1
+  When version is incremented
+  Then versionName must be ""1.0.1"" and versionCode must be 2","[ ] Release keystore generated and configured
+[ ] Signing configuration in build.gradle.kts
+[ ] VersionName and VersionCode set up
+[ ] ProGuard/R8 rules for ML Kit configured
+[ ] APK output directory configured
+[ ] Build variants (debug, release) configured
+[ ] minSdk 34, targetSdk 34, compileSdk 34"
+"M-02-Ticket-01: Create ProductCatalogEntity with @Index","Implement Room entity for product catalog with @Index on EAN for optimized lookups.",High,Data,"Scenario: Lookup product by EAN in <500ms
+  Given database contains product with EAN=""8435489901234""
+  When user queries by EAN=""8435489901234""
+  Then the product must be returned within 500ms
+  And the result must contain name=""Protein Bar Chocolate"" and packSize=20
+
+Scenario: Handle non-existent EAN
+  Given database does not contain EAN=""9999999999999""
+  When user queries by EAN=""9999999999999""
+  Then the result must be null
+  And the query must complete within 500ms","[ ] ProductCatalogEntity with @Entity annotation
+[ ] @PrimaryKey for ean field
+[ ] name (String) field
+[ ] packSize (Int, default=1) field
+[ ] @Index(value = [""ean""]) for O(log n) lookups
+[ ] AppDatabase updated with ProductCatalogEntity"
+"M-02-Ticket-02: Create ProductCatalogDao","Implement DAO with findByEan() and insertOrReplace() methods for dynamic registration.",High,Data,"Scenario: findByEan returns product when exists
+  Given database contains product with EAN=""8435489901234""
+  When findByEan is called with ""8435489901234""
+  Then the product must be returned
+  And name must be ""Protein Bar Chocolate""
+
+Scenario: insertOrReplace handles duplicate EAN
+  Given database contains EAN=""8435489901234""
+  When insertOrReplace is called with same EAN but different name
+  Then the existing record must be updated
+  And no duplicate records must be created","[ ] findByEan(ean: String): ProductCatalogEntity? method
+[ ] insertOrReplace(product: ProductCatalogEntity) with REPLACE strategy
+[ ] getAll(): Flow<List<ProductCatalogEntity>> method
+[ ] Integration tests for findByEan()
+[ ] Integration tests for insertOrReplace()"
+"M-02-Ticket-03: Create ProductRepository Interface","Define ProductRepository interface for dynamic registration with registerProduct() method.",High,Data,"Scenario: ProductRepository interface is defined
+  Given ProductRepository interface is created
+  When interface is inspected
+  Then it must have findByEan() method
+  And it must have registerProduct() method
+  And it must return RegisterResult sealed class","[ ] ProductRepository interface created
+[ ] findByEan(ean: String): Product? method
+[ ] registerProduct(product: Product): RegisterResult method
+[ ] RegisterResult sealed class with Success and Failure types
+[ ] Failure types: InvalidEan, InvalidName, InvalidPackSize, DuplicateProduct, DatabaseError"
+"M-02-Ticket-04: Create ProductRepositoryImpl","Implement ProductRepository with Room DAO integration and RegisterResult handling.",High,Data,"Scenario: registerProduct saves successfully
+  Given repository is initialized with DAO
+  When registerProduct is called with valid product
+  Then product must be saved to database
+  And RegisterResult.Success must be returned
+
+Scenario: registerProduct handles database error
+  Given database is locked or unavailable
+  When registerProduct is called
+  Then RegisterResult.Failure.DatabaseError must be returned
+  And product must not be saved","[ ] ProductRepositoryImpl injects ProductCatalogDao
+[ ] findByEan() maps Entity to Domain Model
+[ ] registerProduct() handles validation errors
+[ ] registerProduct() calls dao.insertOrReplace()
+[ ] Returns RegisterResult.Success on success
+[ ] Returns RegisterResult.Failure on error
+[ ] Write unit tests for repository"
+"M-02-Ticket-05: Create Hilt Modules (Database and UseCase)","Configure Hilt modules for production and test environments with database and use case injection.",High,Data,"Scenario: Hilt provides production database
+  Given app is running in production mode
+  When DatabaseModule provides database
+  Then Room database must be created on disk
+  And DAOs must be injectable
+
+Scenario: Hilt provides test database
+  Given test is running with Hilt
+  When FakeDatabaseModule is installed
+  Then in-memory database must be created
+  And main thread queries must be allowed","[ ] DatabaseModule.kt for production Room database
+[ ] FakeDatabaseModule.kt for test in-memory database
+[ ] UseCaseModule.kt for providing use cases
+[ ] @TestInstallIn for test module replacement
+[ ] provideProductRepository() in DatabaseModule
+[ ] provideRegisterProductUseCase() in UseCaseModule"
+"M-03-Ticket-01: Implement RegisterProductUseCase (TDD)","Create a use case in the Domain layer that handles dynamic product registration with full validation logic. TDD approach: Write tests BEFORE implementation.",High,Domain,"Scenario: Registro exitoso con datos válidos
+  Given el operador escanea un EAN válido de 13 dígitos
+  And el operador ingresa ""Arroz Blanco La Campaña"" como nombre
+  And el operador ingresa ""1000"" como pack size
+  When el sistema valida los datos
+  Then el producto se guarda exitosamente
+  And se retorna RegisterResult.Success con el producto
+
+Scenario: Error por EAN inválido
+  Given el operador escanea un código con 12 dígitos
+  When el sistema valida el formato del EAN
+  Then se retorna RegisterResult.Failure.InvalidEan
+  And el mensaje de error es ""El código debe tener 13 dígitos""
+
+Scenario: Error por nombre muy corto
+  Given el operador ingresa nombre ""AB""
+  When el sistema valida el nombre
+  Then se retorna RegisterResult.Failure.InvalidName
+  And el mensaje de error es ""El nombre debe tener al menos 3 caracteres""
+
+Scenario: Error por packSize negativo
+  Given el operador ingresa packSize ""-5""
+  When el sistema valida el packSize
+  Then se retorna RegisterResult.Failure.InvalidPackSize
+  And el mensaje de error es ""El tamaño del pack debe ser positivo""
+
+Scenario: Error por EAN duplicado
+  Given ya existe un producto con EAN ""8435489901234""
+  When el operador intenta registrar el mismo EAN
+  Then se retorna RegisterResult.Failure.DuplicateProduct
+  And el mensaje incluye el nombre del producto existente","[ ] Validates EAN format (13 digits)
+[ ] Validates product name length (3-100 characters)
+[ ] Validates packSize (positive integer > 0)
+[ ] Checks for duplicate EAN before registration
+[ ] Returns RegisterResult with appropriate Success/Failure types
+[ ] All error messages are in Spanish
+[ ] UNIT TESTING (MANDATORY): ≥90% coverage for this use case"
+"M-03-Ticket-02: Create Product Domain Model","Define Product domain model and ValidationError sealed class for use case results.",High,Domain,"Scenario: Product domain model is defined
+  Given Product data class is created
+  When model is inspected
+  Then it must have ean field (String)
+  And it must have name field (String)
+  And it must have packSize field (Int)","[ ] Product data class with ean, name, packSize
+[ ] RegisterProductRequest data class with userId
+[ ] ValidationError sealed class with all error types
+[ ] Error messages in Spanish
+[ ] RegisterResult sealed class with Success and Failure"
+"M-04-Ticket-01: Implement ParseExpiryDateUseCase (TDD)","Implement date parsing use case following TDD methodology (tests first). Parse MM/YY format to day 1 of that month.",High,Domain,"Scenario: Parse ""07/26"" → 01/07/2026 (day 1, not day 31)
+  Given a date parser is implemented following TDD
+  When parsing ""07/26""
+  Then the result must be ""2026-07-01"" (1st day of July)
+  And unit tests must be written BEFORE implementation
+
+Scenario: Parse invalid format returns null
+  Given input is ""13/26"" (invalid month)
+  When parsing ""13/26""
+  Then the result must be null
+  And the use case must handle error gracefully","[ ] Parses ""07/26"" → ""2026-07-01"" (day 1, not day 31)
+[ ] Returns null for invalid formats
+[ ] Handles month boundaries (01/01 - 12/99)
+[ ] UNIT TESTING (MANDATORY): ≥90% coverage"
+"M-04-Ticket-02: Implement CalculateStatusUseCase (TDD)","Implement semaphore status calculation use case with TDD. Calculate GREEN (>90d), YELLOW (≤30d), RED (≤15d).",High,Domain,"Scenario: Calculate GREEN status for expiry >90 days
+  Given expiry date is 95 days from today
+  When calculate status
+  Then the result must be GREEN (>90d)
+
+Scenario: Calculate YELLOW status for expiry ≤30 days and >15 days
+  Given expiry date is 25 days from today
+  When calculate status
+  Then the result must be YELLOW (≤30d)
+
+Scenario: Calculate RED status for expiry ≤15 days
+  Given expiry date is 10 days from today
+  When calculate status
+  Then the result must be RED (≤15d)","[ ] Returns GREEN for expiry >90 days
+[ ] Returns YELLOW for expiry ≤30 days and >15 days
+[ ] Returns RED for expiry ≤15 days
+[ ] UNIT TESTING (MANDATORY): ≥90% coverage"
+"M-04-Ticket-03: Implement UpsertStockUseCase (TDD)","Implement upsert logic use case with TDD. Aggregate quantity for existing batch, create new batch for unique EAN+expiryDate combination.",High,Domain,"Scenario: Upsert adds quantity to existing batch
+  Given repository has batch with EAN=""123"" expiryDate=""2026-07-01"" quantity=10
+  When upsert is called with EAN=""123"" expiryDate=""2026-07-01"" quantity=5
+  Then the repository must update quantity to 15 (10+5)
+  And no new record must be created
+
+Scenario: Upsert creates new batch for unique combination
+  Given repository has no batch with EAN=""456"" expiryDate=""2026-08-01""
+  When upsert is called with EAN=""456"" expiryDate=""2026-08-01"" quantity=20
+  Then the repository must create new record with quantity=20","[ ] Upsert adds quantity to existing batch
+[ ] Upsert creates new batch for unique combination
+[ ] Prevents duplicate records
+[ ] UNIT TESTING (MANDATORY): ≥90% coverage"
+"M-04-Ticket-04: Implement GetSemaphoreCountersUseCase (TDD)","Implement semaphore counters query use case with TDD. Return GREEN, YELLOW, RED counts.",High,Domain,"Scenario: Get counters from repository
+  Given database contains 5 GREEN, 3 YELLOW, 2 RED records
+  When getSemaphoreCounters is called
+  Then the result must be SemaphoreCounters(green=5, yellow=3, red=2)
+  And the result must update reactively when database changes
+
+Scenario: Handle empty database
+  Given database contains no records
+  When getSemaphoreCounters is called
+  Then the result must be SemaphoreCounters(green=0, yellow=0, red=0)","[ ] Returns correct counts for each status
+[ ] Updates reactively when database changes
+[ ] Handles empty database
+[ ] UNIT TESTING (MANDATORY): ≥90% coverage"
+"M-05-Ticket-01: Implement ScannerViewModel State Management","Update ScannerViewModel with ProductNotFound state and dynamic registration flow integration.",High,Presentation,"Scenario: ProductNotFound state triggers when EAN not found
+  Given user scans EAN that doesn't exist
+  When onBarcodeScanned is called
+  Then state must be ProductNotFound(ean)
+  And Bottom Sheet must be shown
+
+Scenario: Registration success transitions to ProductFound
+  Given user registers new product with valid data
+  When onRegisterProduct completes
+  Then state must be ProductFound(product)
+  And flow must advance to date/qty capture","[ ] ScannerState sealed class with ProductNotFound state
+[ ] onBarcodeScanned(ean) method checks if product exists
+[ ] onRegisterProduct(ean, name, packSize) method
+[ ] onCancelRegistration() method
+[ ] State transitions: Scanning → ProductFound → ProductNotFound → RegisteringProduct → ProductFound"
+"M-05-Ticket-02: Implement ProductRegistrationBottomSheet","Create thumb zone Composable (56dp tap targets) with auto-focus, validation, and one-handed layout.",High,Presentation,"Scenario: Validación en tiempo real del nombre
+  Given el usuario escribe ""AB"" en el campo Nombre
+  When el campo pierde el foco
+  Then el sistema debe mostrar mensaje de ayuda ""Mínimo 3 caracteres""
+  And el botón Guardar debe estar deshabilitado
+  When el usuario escribe ""Barra de Proteína""
+  Then el mensaje de ayuda debe desaparecer
+  And el botón Guardar debe estar habilitado
+
+Scenario: Botones en zona del pulgar
+  Given pantalla XCover7 de 690dp de altura
+  When Bottom Sheet se renderiza
+  Then botones deben estar en bottom 20% (~138dp)
+  And botones deben ser al menos 48dp × 48dp","[ ] Bottom Sheet with ModalBottomSheetLayout
+[ ] EAN field (read-only, shows scanned value)
+[ ] Name field (auto-focus, 3-100 chars validation)
+[ ] PackSize field (numeric keyboard, >0 validation)
+[ ] Cancel button (48dp, secondary color)
+[ ] Save button (48dp, primary color, enabled/disabled state)
+[ ] Validation error messages in Spanish
+[ ] imePadding() for keyboard handling
+[ ] Buttons in bottom 20% (thumb zone)
+[ ] Renders in <200ms"
+"M-05-Ticket-03: Integrate ProductRegistrationBottomSheet with ScannerScreen","Update ScannerScreen to handle ProductNotFound state and show ProductRegistrationBottomSheet.",High,Presentation,"Scenario: Bottom Sheet se muestra cuando producto no existe
+  Given usuario escanea EAN que no existe
+  When ScannerViewModel cambia a ProductNotFound
+  Then ProductRegistrationBottomSheet debe aparecer
+  And cámara debe pausarse
+  And EAN debe estar pre-cargado en el campo
+
+Scenario: Cámara se reanuda después de registro
+  Given Bottom Sheet está abierto
+  When usuario toca Guardar y registro es exitoso
+  Then Bottom Sheet debe cerrarse
+  And cámara debe reanudarse
+  And flujo debe avanzar a captura de fecha/cantidad","[ ] ScannerScreen observes ScannerViewModel state
+[ ] Shows ProductRegistrationBottomSheet when state is ProductNotFound
+[ ] Passes EAN, onRegister, onCancel callbacks
+[ ] Pauses camera when Bottom Sheet is open
+[ ] Resumes camera after registration or cancel"
+"M-05-Ticket-04: Implement Dashboard with Semaphore Counters","Create dashboard Composable with semáforo counters and stock list.",High,Presentation,"Scenario: Dashboard loads with counters in <1 second
+  Given user opens dashboard screen
+  When dashboard loads
+  Then semaphore counters must be displayed in <1 second
+  And GREEN, YELLOW, RED counts must be prominently visible
+
+Scenario: Tap GREEN counter filters list
+  Given dashboard displays GREEN counter with value=5
+  When user taps GREEN counter
+  Then the stock list must show only GREEN records (expiry >90d)","[ ] Dashboard loads with counters in <1 second
+[ ] GREEN, YELLOW, RED counts prominently displayed
+[ ] Tap on counter filters list
+[ ] Stock list shows products for selected status
+[ ] One-handed layout optimization"
+"M-05-Ticket-05: Implement History Screen with Search","Create history Composable with searchable stock list and filters.",High,Presentation,"Scenario: Search filters list in <500ms
+  Given stock list contains 100+ records
+  When user types search query ""protein""
+  Then the list must filter results in <500ms
+  And only matching products must be displayed
+
+Scenario: Apply status filter
+  Given user selects RED status filter
+  When filter is applied
+  Then the list must show only RED records (expiry ≤15d)","[ ] Search filters list in <500ms
+[ ] Status filter (GREEN, YELLOW, RED)
+[ ] Sort by expiry date, quantity
+[ ] One-handed layout optimization"
+"M-05-Ticket-06: Implement One-Handed Layout Optimizations","Optimize all screens for one-handed use on Samsung XCover7 (thumb zone at bottom 20%).",Medium,Presentation,"Scenario: Primary actions in thumb zone (bottom 20%)
+  Given screen displays 6.3"" XCover7 display
+  Then primary action buttons must be in bottom 20% of screen
+  And buttons must be at least 48dp × 48dp for easy thumb access
+
+Scenario: High contrast colors for readability
+  Given warehouse lighting is low (100-200 lux)
+  When screen is displayed
+  Then text must have high contrast ratio (>4.5:1)
+  And semáforo colors must be easily distinguishable","[ ] Primary actions in bottom 20% of screen
+[ ] Buttons at least 48dp × 48dp
+[ ] High contrast colors (>4.5:1)
+[ ] Semáforo colors easily distinguishable
+[ ] Tested on XCover7 device"
+"M-06-Ticket-01: Implement Daily Semaphore Update Worker","Create WorkManager worker for daily status recalculation at 06:00 AM.",High,Data,"Scenario: Worker executes on schedule at 06:00 AM
+  Given it is 06:00 AM and the device is on
+  When the worker runs
+  Then all ActiveStock records must be queried
+  And semaphore status must be recalculated for each record
+  And the update must complete within 10 seconds
+
+Scenario: Worker does not run when battery is low
+  Given battery level is <15%
+  When 06:00 AM arrives
+  Then the worker must be skipped (constraint: requiresBatteryNotLow)
+  And status must be deferred until battery is >15%","[ ] Worker executes on schedule at 06:00 AM
+[ ] Queries all ActiveStock records
+[ ] Recalculates semaphore status for each record
+[ ] Updates status in database
+[ ] Completes within 10 seconds
+[ ] Skips when battery is low (<15%)"
+"M-06-Ticket-02: Implement Post-Boot Initialization","Configure WorkManager to run worker 6 hours after device boot.",High,Data,"Scenario: Worker runs 6 hours after device restart
+  Given device boots up at 10:00 AM
+  When 6 hours elapse
+  Then the semaphore update worker must execute
+  And all statuses must be recalculated
+
+Scenario: Worker respects retry policy
+  Given worker fails to update (e.g., database locked)
+  When retry policy applies
+  Then worker must retry with exponential backoff (10s → 20s → 40s)
+  And maximum 3 retry attempts must be allowed","[ ] Worker runs 6 hours after device restart
+[ ] All statuses recalculated after boot
+[ ] Retry policy with exponential backoff (10s → 20s → 40s)
+[ ] Maximum 3 retry attempts"
+"M-07-Ticket-01: Unit Tests for Domain Layer (TDD)","Write comprehensive unit tests for all use cases (≥90% coverage).",High,Testing,"Scenario: ParseExpiryDateUseCase passes all edge cases
+  Given unit tests cover valid MM/YY formats (01/01 - 12/99)
+  When tests run
+  Then all tests must pass
+  And code coverage must be ≥90%
+
+Scenario: CalculateStatusUseCase passes boundary tests
+  Given unit tests cover exact thresholds (90d, 30d, 15d)
+  When tests run
+  Then boundary conditions must be correct
+  And GREEN status must be >90d (not >=90d)","[ ] RegisterProductUseCase: 5+ test scenarios
+[ ] ParseExpiryDateUseCase: 3+ test scenarios
+[ ] CalculateStatusUseCase: 5+ test scenarios
+[ ] UpsertStockUseCase: 3+ test scenarios
+[ ] GetSemaphoreCountersUseCase: 3+ test scenarios
+[ ] Overall coverage ≥90%"
+"M-07-Ticket-02: Room Integration Tests","Write integration tests for DAOs using in-memory database.",Medium,Testing,"Scenario: ActiveStockDao upsert test passes
+  Given in-memory database is created
+  When upsertStock is called with existing batch
+  Then quantity must be aggregated correctly
+  And no duplicate records must exist
+
+Scenario: SemaphoreCounters query returns correct values
+  Given database contains mixed statuses
+  When getSemaphoreCounters is called
+  Then result must match actual COUNT(*) queries","[ ] ProductCatalogDao: findByEan(), insertOrReplace()
+[ ] ActiveStockDao: upsertStock(), getByStatus(), getSemaphoreCounters(), updateStatus()
+[ ] DateConverter: fromTimestamp(), toTimestamp()
+[ ] All tests use in-memory database
+[ ] Tests run in <5 seconds"
+"M-07-Ticket-03: UI Tests with Compose Testing","Write UI tests for critical flows (scanner, dashboard, product registration).",Medium,Testing,"Scenario: Scanner screen test passes
+  Given Compose test rule is set up
+  When user clicks ""Scan"" button
+  Then confirmation dialog must appear
+  And product details must be displayed correctly
+
+Scenario: Dashboard screen test passes
+  Given Compose test rule is set up
+  When dashboard loads
+  Then semaphore counters must be displayed
+  And counters must show correct values","[ ] ProductRegistrationBottomSheet: renders correctly, auto-focus, validation, tap targets (48dp+)
+[ ] ScannerScreen: handles ProductNotFound state, shows Bottom Sheet
+[ ] DashboardScreen: displays counters, filters list
+[ ] HistoryScreen: search, filter, sort functionality
+[ ] All UI tests pass"
+"M-08-Ticket-01: GitHub Actions Build Pipeline","Create GitHub Actions workflow for automated builds and tests.",Medium,Infrastructure,"Scenario: Pipeline runs on push to main
+  Given push event triggers workflow
+  When workflow runs
+  Then all unit tests must execute
+  And build must succeed in ≤5 minutes
+
+Scenario: Pipeline runs on pull request
+  Given pull request is opened
+  When workflow runs
+  Then all tests must execute
+  And build must pass before merge is allowed","[ ] Pipeline runs on push to main
+[ ] Pipeline runs on pull request
+[ ] All unit tests execute
+[ ] All integration tests execute
+[ ] Build succeeds in ≤5 minutes
+[ ] Build artifacts (APK) generated"
+"M-08-Ticket-02: Direct APK Deployment Flow","Document and automate APK installation process for XCover7 devices.",Medium,Infrastructure,"Scenario: APK installs on XCover7 without errors
+  Given APK is downloaded to XCover7 device
+  When user taps APK file
+  Then installation must succeed
+  And app must launch successfully
+
+Scenario: Version update overwrites previous version
+  Given app version 1.0.0 is installed
+  When APK version 1.0.1 is installed
+  Then data must be preserved (Room database migration)
+  And app must launch with new version","[ ] APK installs on XCover7 without errors
+[ ] App launches successfully after installation
+[ ] Version update overwrites previous version
+[ ] Data preserved (Room database migration)
+[ ] Documentation created for deployment process"
