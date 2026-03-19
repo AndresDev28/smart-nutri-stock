@@ -8,7 +8,7 @@ import androidx.room.PrimaryKey
     tableName = "product_catalog",
     indices = [
         Index(value = ["ean"]),  // Index for fast lookups (O(log n) instead of O(n))
-        Index(value = ["name"])  // Index for search by name
+        Index(value = ["name"]),  // Index for search by name
     ]
 )
 data class ProductCatalogEntity(
@@ -21,4 +21,6 @@ data class ProductCatalogEntity(
 
     val createdAt: Long,  // Timestamp when product was registered
     val createdBy: Long,  // User ID who registered this product
+
+    val daysUntilExpiry: Int = 0  // Days until expiry (negative if expired)
 )
