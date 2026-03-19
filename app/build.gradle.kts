@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.decathlon.smartnutristock"
-        minSdk = 24
+        minSdk = 26  // API 26 required for java.time.DateTimeFormatter
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
