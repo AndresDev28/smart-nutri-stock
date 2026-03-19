@@ -1,12 +1,19 @@
 package com.decathlon.smartnutristock.data.local
 
-/**
- * Room database for Smart Nutri Stock.
- * TODO: Define @Database annotation with entities and version
- */
-abstract class SmartNutriStockDatabase {
-    // TODO: Define abstract DAO methods
+import androidx.room.Database
+import androidx.room.RoomDatabase
+import com.decathlon.smartnutristock.data.dao.ProductCatalogDao
+import com.decathlon.smartnutristock.data.entity.ProductCatalogEntity
+
+@Database(
+    entities = [ProductCatalogEntity::class],
+    version = 1,
+    exportSchema = true  // Export schema to JSON for versioning
+)
+abstract class SmartNutriStockDatabase : RoomDatabase() {
+    abstract fun productCatalogDao(): ProductCatalogDao
+
     companion object {
-        // TODO: Define database instance logic
+        const val DATABASE_NAME = "smart_nutri_stock.db"
     }
 }

@@ -126,8 +126,8 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation("io.mockk:mockk-android:1.13.9")
-    androidTestImplementation("androidx.hilt:hilt-android-testing:1.1.0")
-    kaptAndroidTest("androidx.hilt:hilt-android-compiler:1.1.0")
+    // androidTestImplementation("androidx.hilt:hilt-android-testing:1.1.0") // TODO: Add back in EPIC-07
+    // kaptAndroidTest("androidx.hilt:hilt-android-compiler:1.1.0") // TODO: Add back in EPIC-07
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
