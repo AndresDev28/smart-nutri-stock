@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.2.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v1.1.0...v1.2.0) (2026-03-20)
+
+
+### Features
+
+* add haptic feedback on barcode detection ([e1b3b41](https://github.com/AndresDev28/smart-nutri-stock/commit/e1b3b41c3359906d62472be6664c16064114813e))
+* **scanner:** implement ProductRegistrationBottomSheet with thumb zone optimization ([ca0adb9](https://github.com/AndresDev28/smart-nutri-stock/commit/ca0adb91d457855f2d81b5e2ac8f07dcf9b79564))
+* **scanner:** implement ScannerScreen with CameraX and ML Kit ([da4b4be](https://github.com/AndresDev28/smart-nutri-stock/commit/da4b4be06a5d0006c950b14e43fe8ce5255d507c))
+* **scanner:** implement ScannerViewModel with state management ([96acae5](https://github.com/AndresDev28/smart-nutri-stock/commit/96acae56725539362e72c0965ea7ec732c29c365))
+* **ui:** add Decathlon corporate color and Scaffold structure to MainActivity ([2c30cb7](https://github.com/AndresDev28/smart-nutri-stock/commit/2c30cb7b5fe77e2e7400c86f61ac35bc9a8b6d07))
+
+
+### Bug Fixes
+
+* enable ML Kit barcode detection with ImageAnalysis connection ([fa033bd](https://github.com/AndresDev28/smart-nutri-stock/commit/fa033bd3746b1eb4ea7279bdc639f166a53e9226))
+* resolve compilation errors and implement scanner navigation ([2958371](https://github.com/AndresDev28/smart-nutri-stock/commit/2958371d7ee6c9e6cfc0b3059703bd4e5afa55a6))
+
 ## [1.1.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v1.0.0...v1.1.0) (2026-03-19)
 
 
