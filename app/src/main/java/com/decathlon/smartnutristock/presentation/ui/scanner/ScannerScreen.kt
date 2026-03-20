@@ -2,6 +2,7 @@ package com.decathlon.smartnutristock.presentation.ui.scanner
 
 import android.Manifest
 import androidx.camera.core.ImageAnalysis
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.camera.core.ImageProxy
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
@@ -64,7 +65,7 @@ import java.util.concurrent.Executors
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScannerScreen(
-    viewModel: ScannerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    viewModel: ScannerViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -129,16 +130,7 @@ fun ScannerScreen(
         )
     }
 
-    // Camera preview with ML Kit analysis
-    AndroidView(
-        factory = { ctx ->
-            PreviewView(ctx).apply {
-                controller = cameraController
-                cameraController.bindToLifecycle(lifecycleOwner)
-            }
-        },
-        modifier = Modifier.fillMaxSize()
-    )
+
 
     // Setup image analysis separately
     LaunchedEffect(Unit) {
@@ -184,10 +176,14 @@ fun ScannerScreen(
                 contentAlignment = Alignment.Center
             ) {
                 if (isCameraActive) {
-                    Text(
-                        text = "Escaneando...",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
+                    AndroidView(
+                        factory = { ctx ->
+                            PreviewView(ctx).apply {
+                                controller = cameraController
+                                cameraController.bindToLifecycle(lifecycleOwner)
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
                     )
                 } else {
                     Text(

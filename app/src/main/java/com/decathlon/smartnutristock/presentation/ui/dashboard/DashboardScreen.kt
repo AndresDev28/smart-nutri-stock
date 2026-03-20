@@ -1,5 +1,11 @@
 package com.decathlon.smartnutristock.presentation.ui.dashboard
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +20,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -21,18 +29,21 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import com.decathlon.smartnutristock.domain.usecase.SemaphoreCounters
 
 /**
@@ -56,8 +67,29 @@ import com.decathlon.smartnutristock.domain.usecase.SemaphoreCounters
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
+    navController: NavController,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
+
+    // Check camera permission
+    val cameraPermissionGranted = remember {
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    // Camera permission launcher
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permission granted, navigate to scanner
+            navController.navigate("scanner")
+        }
+    }
+
     // Collect UI state from ViewModel
     val uiState by viewModel.uiState.collectAsState()
 
@@ -66,20 +98,7 @@ fun DashboardScreen(
         viewModel.refresh()
     }
 
-    Scaffold(
-        topBar = {
-            // Simple top bar with app name
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Smart Nutri-Stock",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            )
-        }
-    ) { padding ->
+    Scaffold { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -99,7 +118,12 @@ fun DashboardScreen(
 
                 is DashboardUiState.Success -> {
                     // Show counters
-                    DashboardContent(counters = (uiState as DashboardUiState.Success).counters)
+                    DashboardContent(
+                        counters = (uiState as DashboardUiState.Success).counters,
+                        navController = navController,
+                        cameraPermissionGranted = cameraPermissionGranted,
+                        cameraPermissionLauncher = cameraPermissionLauncher
+                    )
                 }
 
                 is DashboardUiState.Error -> {
@@ -116,7 +140,12 @@ fun DashboardScreen(
  * Optimized for thumb zone on Samsung XCover7.
  */
 @Composable
-private fun DashboardContent(counters: SemaphoreCounters) {
+private fun DashboardContent(
+    counters: SemaphoreCounters,
+    navController: NavController,
+    cameraPermissionGranted: Boolean,
+    cameraPermissionLauncher: androidx.activity.result.ActivityResultLauncher<String>
+) {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -164,6 +193,34 @@ private fun DashboardContent(counters: SemaphoreCounters) {
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+
+        // Scan Product Button
+        Button(
+            onClick = {
+                if (cameraPermissionGranted) {
+                    // Permission already granted, navigate to scanner
+                    navController.navigate("scanner")
+                } else {
+                    // Request camera permission
+                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp) // Thumb zone optimized for XCover7
+                .padding(horizontal = 16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Text(
+                text = "Escanear Producto",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Total Products Count
         Card(

@@ -1,4 +1,4 @@
-package com.decathlon.smartnutristock.ui.theme
+package com.decathlon.smartnutristock.presentation.ui.theme
 
 import android.app.Activity
 import android.os.Build
