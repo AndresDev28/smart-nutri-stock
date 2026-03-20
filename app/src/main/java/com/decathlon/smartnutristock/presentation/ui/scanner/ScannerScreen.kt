@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import android.util.Log
 import kotlinx.coroutines.launch
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -88,10 +89,12 @@ fun ScannerScreen(
         }
     }
 
-    // ML Kit barcode scanner (EAN-13 format)
+    // ML Kit barcode scanner (EAN-13 and EAN-8 formats)
     val barcodeScanner = remember {
         val options = BarcodeScannerOptions.Builder()
-            .setBarcodeFormats(Barcode.FORMAT_EAN_13)
+            .setBarcodeFormats(
+                Barcode.FORMAT_EAN_13 or Barcode.FORMAT_EAN_8
+            )
             .build()
         BarcodeScanning.getClient(options)
     }
@@ -132,22 +135,16 @@ fun ScannerScreen(
 
 
 
-    // Setup image analysis separately
-    LaunchedEffect(Unit) {
-        val imageAnalysis = ImageAnalysis.Builder()
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .build()
-
-        imageAnalysis.setAnalyzer(executor) { imageProxy ->
+    // Setup image analysis - connect to LifecycleCameraController
+    LaunchedEffect(cameraController) {
+        cameraController.setImageAnalysisAnalyzer(executor) { imageProxy ->
+            Log.d("Scanner", "Procesando frame...")
             processImageProxy(
                 imageProxy = imageProxy,
                 barcodeScanner = barcodeScanner,
                 viewModel = viewModel
             )
         }
-
-        // Note: In a real implementation, you would set this up with CameraProvider
-        // For now, we're using LifecycleCameraController for preview only
     }
 
     Scaffold(
@@ -280,7 +277,7 @@ private fun processImageProxy(
             .addOnSuccessListener { barcodes ->
                 for (barcode in barcodes) {
                     val ean = barcode.rawValue
-                    if (!ean.isNullOrEmpty() && ean.length == 13) {
+                    if (!ean.isNullOrEmpty() && (ean.length == 13 || ean.length == 8)) {
                         viewModel.onEanDetected(ean)
                         break // Only process first barcode
                     }
