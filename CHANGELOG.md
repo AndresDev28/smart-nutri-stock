@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v1.0.0...v1.1.0) (2026-03-19)
+
+
+### Features
+
+* **EPIC-05:** implement dashboard with semaphore counters ([1a47e92](https://github.com/AndresDev28/smart-nutri-stock/commit/1a47e92538bb906d4973692769acc5a1e8427626))
+
 ## 1.0.0 (2026-03-19)
 
 
