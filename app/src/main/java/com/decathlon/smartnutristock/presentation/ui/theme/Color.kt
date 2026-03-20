@@ -1,4 +1,4 @@
-package com.decathlon.smartnutristock.ui.theme
+package com.decathlon.smartnutristock.presentation.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
