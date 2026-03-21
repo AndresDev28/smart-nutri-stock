@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v1.2.0...v1.3.0) (2026-03-21)
+
+
+### Features
+
+* implement HistoryScreen for EPIC-05 ([9108373](https://github.com/AndresDev28/smart-nutri-stock/commit/9108373be193b99375f25982e2ee97bd1b94e136))
+
 ## [1.2.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v1.1.0...v1.2.0) (2026-03-20)
 
 
