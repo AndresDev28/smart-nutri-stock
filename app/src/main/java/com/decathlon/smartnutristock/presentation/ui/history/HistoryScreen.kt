@@ -25,7 +25,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -34,7 +33,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.decathlon.smartnutristock.domain.usecase.CalculateStatusUseCase
 
 /**
  * History screen for viewing all products in the catalog.
@@ -122,23 +120,18 @@ fun HistoryScreen(
  */
 @Composable
 private fun ProductList(
-    products: List<com.decathlon.smartnutristock.data.entity.ProductCatalogEntity>,
+    products: List<ProductWithStatus>,
     onRefresh: () -> Unit
 ) {
-    LaunchedEffect(Unit) {
-        // Load products when screen comes into view
-        onRefresh()
-    }
-
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(
             items = products,
-            key = { it.ean }
-        ) { product ->
-            ProductCard(product = product)
+            key = { it.product.ean }
+        ) { productWithStatus ->
+            ProductCard(productWithStatus = productWithStatus)
         }
 
         // Add bottom padding for scrolling
@@ -151,12 +144,14 @@ private fun ProductList(
 /**
  * Individual product card component.
  * Thumb zone optimized (minimum 56dp height).
+ * Uses pre-calculated status from ViewModel to prevent recomposition loops.
  */
 @Composable
 private fun ProductCard(
-    product: com.decathlon.smartnutristock.data.entity.ProductCatalogEntity
+    productWithStatus: ProductWithStatus
 ) {
-    val status = CalculateStatusUseCase().invoke(product.daysUntilExpiry)
+    val product = productWithStatus.product
+    val status = productWithStatus.status
 
     val (statusColor, statusText) = when (status) {
         is com.decathlon.smartnutristock.domain.usecase.SemaphoreStatus.Safe -> {

@@ -222,6 +222,28 @@ private fun DashboardContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // History Button
+        Button(
+            onClick = {
+                navController.navigate("history")
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp) // Thumb zone optimized for XCover7
+                .padding(horizontal = 16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.secondary
+            )
+        ) {
+            Text(
+                text = "Ver Historial",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // Total Products Count
         Card(
             modifier = Modifier
