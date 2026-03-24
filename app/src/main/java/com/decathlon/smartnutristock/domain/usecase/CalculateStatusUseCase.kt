@@ -1,57 +1,47 @@
 package com.decathlon.smartnutristock.domain.usecase
 
+import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 import javax.inject.Inject
 
 /**
- * Use case for calculating expiry status semaphore.
+ * Use case for calculating expiry status semaphore based on expiry date.
  *
- * Semaphore Logic:
- * - 🔴 Red: Expiration date has passed (days <= 0)
- * - 🟡 Yellow: Within warning period (1-7 days until expiry)
- * - 🟢 Green: Safe (8+ days until expiry)
+ * Semaphore Logic (NEW - correct thresholds):
+ * - 🔴 EXPIRED: Already past expiry date (≤0 days)
+ * - 🔴 RED: ≤15 days until expiry
+ * - 🟡 YELLOW: 16-30 days until expiry
+ * - 🟢 GREEN: >30 days until expiry
  *
- * @return SemaphoreStatus with status code and days remaining
+ * @return SemaphoreStatus with appropriate status based on expiry date
  */
 class CalculateStatusUseCase @Inject constructor() {
 
     /**
-     * Calculate status based on days until expiry.
+     * Calculate status based on expiry date.
      *
-     * @param daysUntilExpiry Days until expiration (can be negative)
+     * @param expiryDate Expiration date and time (UTC)
+     * @param clock Clock to use for time calculation (default: UTC system clock)
      * @return SemaphoreStatus with appropriate status
      */
-    operator fun invoke(daysUntilExpiry: Int): SemaphoreStatus {
+    operator fun invoke(expiryDate: Instant, clock: Clock = Clock.systemUTC()): SemaphoreStatus {
+        val now = Instant.now(clock)
+        val daysUntilExpiry = Duration.between(now, expiryDate).toDays().toInt()
+
         return when {
-            // RED: Expiration date has passed
-            daysUntilExpiry <= 0 -> SemaphoreStatus.Expired(
-                status = "expired",
-                color = "#FF4444",  // Red
-                daysUntil = daysUntilExpiry
-            )
+            // EXPIRED: Already past expiry date
+            daysUntilExpiry <= 0 -> SemaphoreStatus.EXPIRED
 
-            // YELLOW: Warning period (1-7 days)
-            daysUntilExpiry in 1..7 -> SemaphoreStatus.Warning(
-                status = "warning",
-                color = "#FFC107",  // Yellow/Orange
-                daysUntil = daysUntilExpiry
-            )
+            // RED: High priority - ≤15 days until expiry
+            daysUntilExpiry in 1..15 -> SemaphoreStatus.RED
 
-            // GREEN: Safe period (8+ days)
-            else -> SemaphoreStatus.Safe(
-                status = "safe",
-                color = "#4CAF50",  // Green
-                daysUntil = daysUntilExpiry
-            )
+            // YELLOW: Medium priority - 16-30 days until expiry
+            daysUntilExpiry in 16..30 -> SemaphoreStatus.YELLOW
+
+            // GREEN: Low priority - >30 days until expiry
+            else -> SemaphoreStatus.GREEN
         }
     }
-}
-
-/**
- * Sealed class for semaphore status.
- * Enables exhaustive `when()` expressions in Compose UI.
- */
-sealed class SemaphoreStatus {
-    data class Expired(val status: String, val color: String, val daysUntil: Int) : SemaphoreStatus()
-    data class Warning(val status: String, val color: String, val daysUntil: Int) : SemaphoreStatus()
-    data class Safe(val status: String, val color: String, val daysUntil: Int) : SemaphoreStatus()
 }

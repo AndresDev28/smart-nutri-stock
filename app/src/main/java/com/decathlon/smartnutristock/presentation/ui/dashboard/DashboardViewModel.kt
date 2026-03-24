@@ -3,7 +3,7 @@ package com.decathlon.smartnutristock.presentation.ui.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.decathlon.smartnutristock.domain.usecase.GetSemaphoreCountersUseCase
-import com.decathlon.smartnutristock.domain.usecase.SemaphoreCounters
+import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

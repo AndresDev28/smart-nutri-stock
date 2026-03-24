@@ -154,15 +154,17 @@ private fun ProductCard(
     val status = productWithStatus.status
 
     val (statusColor, statusText) = when (status) {
-        is com.decathlon.smartnutristock.domain.usecase.SemaphoreStatus.Safe -> {
-            Pair(Color(0xFF4CAF50), "Seguro (${status.daysUntil} días)")
+        com.decathlon.smartnutristock.domain.model.SemaphoreStatus.GREEN -> {
+            Pair(Color(0xFF4CAF50), "Seguro")
         }
-        is com.decathlon.smartnutristock.domain.usecase.SemaphoreStatus.Warning -> {
-            Pair(Color(0xFFFFC107), "Por vencer (${status.daysUntil} días)")
+        com.decathlon.smartnutristock.domain.model.SemaphoreStatus.YELLOW -> {
+            Pair(Color(0xFFFFC107), "Por vencer")
         }
-        is com.decathlon.smartnutristock.domain.usecase.SemaphoreStatus.Expired -> {
-            val text = if (status.daysUntil < 0) "Expirado (${status.daysUntil} días)" else "Expira hoy"
-            Pair(Color(0xFFFF4444), text)
+        com.decathlon.smartnutristock.domain.model.SemaphoreStatus.RED -> {
+            Pair(Color(0xFFFF4444), "Próximo a vencer")
+        }
+        com.decathlon.smartnutristock.domain.model.SemaphoreStatus.EXPIRED -> {
+            Pair(Color(0xFFFF4444), "Expirado")
         }
     }
 

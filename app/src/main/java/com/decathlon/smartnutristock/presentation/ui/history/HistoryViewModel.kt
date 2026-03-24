@@ -3,6 +3,7 @@ package com.decathlon.smartnutristock.presentation.ui.history
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.decathlon.smartnutristock.data.entity.ProductCatalogEntity
+import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
 import com.decathlon.smartnutristock.domain.usecase.CalculateStatusUseCase
 import com.decathlon.smartnutristock.domain.usecase.GetAllProductsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,10 +14,13 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 import javax.inject.Inject
 
 /**
- * ViewModel for the History screen.
+ * ViewModel for History screen.
  *
  * Responsibilities:
  * - Loads all products from GetAllProductsUseCase ONCE
@@ -43,7 +47,7 @@ class HistoryViewModel @Inject constructor(
 
     /**
      * Load all products ONCE (not a flow collector).
-     * This prevents the infinite recomposition loop.
+     * This prevents infinite recomposition loop.
      */
     private fun loadProductsOnce() {
         viewModelScope.launch {
@@ -52,15 +56,19 @@ class HistoryViewModel @Inject constructor(
             try {
                 // Use first() from flow to get products once, not collect
                 val products = getAllProductsUseCase().first()
-                
+
                 // Calculate status for each product
                 val productsWithStatus = products.map { product ->
+                    val clock = Clock.systemUTC()
+                    val now = Instant.now(clock)
+                    val expiryDate = now.plus(Duration.ofDays(product.daysUntilExpiry.toLong()))
+
                     ProductWithStatus(
                         product = product,
-                        status = calculateStatusUseCase(product.daysUntilExpiry)
+                        status = calculateStatusUseCase(expiryDate)
                     )
                 }
-                
+
                 _uiState.value = HistoryUiState.Success(productsWithStatus)
             } catch (e: Exception) {
                 _uiState.value = HistoryUiState.Error(e.message ?: "Error al cargar productos")
@@ -82,7 +90,7 @@ class HistoryViewModel @Inject constructor(
  */
 data class ProductWithStatus(
     val product: ProductCatalogEntity,
-    val status: com.decathlon.smartnutristock.domain.usecase.SemaphoreStatus
+    val status: SemaphoreStatus
 )
 
 /**

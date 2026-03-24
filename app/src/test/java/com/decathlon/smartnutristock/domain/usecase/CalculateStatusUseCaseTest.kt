@@ -1,193 +1,163 @@
 package com.decathlon.smartnutristock.domain.usecase
 
+import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 
 class CalculateStatusUseCaseTest {
 
     private lateinit var useCase: CalculateStatusUseCase
+    private lateinit var fixedClock: Clock
 
     @Before
     fun setup() {
         useCase = CalculateStatusUseCase()
+        fixedClock = Clock.fixed(Instant.parse("2024-01-01T00:00:00Z"), Clock.systemUTC().zone)
     }
 
-    // TEST 1: Expired (days <= 0) -> Red semaphore
-    @Test
-    fun `calculateStatus with zero days should return Expired status`() = runTest {
-        val daysUntilExpiry = 0
-
-        val result = useCase(daysUntilExpiry)
-
-        assert(result is SemaphoreStatus.Expired)
-        val expired = result as SemaphoreStatus.Expired
-        assert(expired.status == "expired")
-        assert(expired.color == "#FF4444")
-        assert(expired.daysUntil == 0)
+    /**
+     * Helper to create an Instant that is [days] days in the future or past from the fixed clock time.
+     */
+    private fun instantDaysFromNow(days: Int): Instant {
+        return fixedClock.instant().plus(Duration.ofDays(days.toLong()))
     }
 
-    // TEST 2: Expired (negative days) -> Red semaphore
+    // TEST 1: Expired (days <= 0) -> EXPIRED
     @Test
-    fun `calculateStatus with negative days should return Expired status`() = runTest {
-        val daysUntilExpiry = -5
+    fun `calculateStatus with zero days should return EXPIRED status`() = runTest {
+        val expiryDate = instantDaysFromNow(0)
 
-        val result = useCase(daysUntilExpiry)
+        val result = useCase(expiryDate, fixedClock)
 
-        assert(result is SemaphoreStatus.Expired)
-        val expired = result as SemaphoreStatus.Expired
-        assert(expired.status == "expired")
-        assert(expired.color == "#FF4444")
-        assert(expired.daysUntil == -5)
+        assertEquals(SemaphoreStatus.EXPIRED, result)
     }
 
-    // TEST 3: Warning period (1-7 days) -> Yellow semaphore
+    // TEST 2: Expired (negative days) -> EXPIRED
     @Test
-    fun `calculateStatus with 1 day should return Warning status`() = runTest {
-        val daysUntilExpiry = 1
+    fun `calculateStatus with negative days should return EXPIRED status`() = runTest {
+        val expiryDate = instantDaysFromNow(-5)
 
-        val result = useCase(daysUntilExpiry)
+        val result = useCase(expiryDate, fixedClock)
 
-        assert(result is SemaphoreStatus.Warning)
-        val warning = result as SemaphoreStatus.Warning
-        assert(warning.status == "warning")
-        assert(warning.color == "#FFC107")
-        assert(warning.daysUntil == 1)
+        assertEquals(SemaphoreStatus.EXPIRED, result)
     }
 
-    // TEST 4: Warning period (3 days)
+    // TEST 3: RED period (1-15 days)
     @Test
-    fun `calculateStatus with 3 days should return Warning status`() = runTest {
-        val daysUntilExpiry = 3
+    fun `calculateStatus with 1 day should return RED status`() = runTest {
+        val expiryDate = instantDaysFromNow(1)
 
-        val result = useCase(daysUntilExpiry)
+        val result = useCase(expiryDate, fixedClock)
 
-        assert(result is SemaphoreStatus.Warning)
-        val warning = result as SemaphoreStatus.Warning
-        assert(warning.status == "warning")
-        assert(warning.color == "#FFC107")
-        assert(warning.daysUntil == 3)
+        assertEquals(SemaphoreStatus.RED, result)
     }
 
-    // TEST 5: Boundary condition (exactly 7 days) -> Yellow
+    // TEST 4: RED period (10 days)
     @Test
-    fun `calculateStatus with 7 days should return Warning status`() = runTest {
-        val daysUntilExpiry = 7
+    fun `calculateStatus with 10 days should return RED status`() = runTest {
+        val expiryDate = instantDaysFromNow(10)
 
-        val result = useCase(daysUntilExpiry)
+        val result = useCase(expiryDate, fixedClock)
 
-        assert(result is SemaphoreStatus.Warning)
-        val warning = result as SemaphoreStatus.Warning
-        assert(warning.status == "warning")
-        assert(warning.color == "#FFC107")
-        assert(warning.daysUntil == 7)
+        assertEquals(SemaphoreStatus.RED, result)
     }
 
-    // TEST 6: Safe (8+ days) -> Green semaphore
+    // TEST 5: RED period (15 days) - boundary
     @Test
-    fun `calculateStatus with 8 days should return Safe status`() = runTest {
-        val daysUntilExpiry = 8
+    fun `calculateStatus with 15 days should return RED status`() = runTest {
+        val expiryDate = instantDaysFromNow(15)
 
-        val result = useCase(daysUntilExpiry)
+        val result = useCase(expiryDate, fixedClock)
 
-        assert(result is SemaphoreStatus.Safe)
-        val safe = result as SemaphoreStatus.Safe
-        assert(safe.status == "safe")
-        assert(safe.color == "#4CAF50")
-        assert(safe.daysUntil == 8)
+        assertEquals(SemaphoreStatus.RED, result)
     }
 
-    // TEST 7: Safe (10 days)
+    // TEST 6: YELLOW period (16 days)
     @Test
-    fun `calculateStatus with 10 days should return Safe status`() = runTest {
-        val daysUntilExpiry = 10
+    fun `calculateStatus with 16 days should return YELLOW status`() = runTest {
+        val expiryDate = instantDaysFromNow(16)
 
-        val result = useCase(daysUntilExpiry)
+        val result = useCase(expiryDate, fixedClock)
 
-        assert(result is SemaphoreStatus.Safe)
-        val safe = result as SemaphoreStatus.Safe
-        assert(safe.status == "safe")
-        assert(safe.color == "#4CAF50")
-        assert(safe.daysUntil == 10)
+        assertEquals(SemaphoreStatus.YELLOW, result)
     }
 
-    // TEST 8: Safe (30 days - far in the future)
+    // TEST 7: YELLOW period (20 days)
     @Test
-    fun `calculateStatus with 30 days should return Safe status`() = runTest {
-        val daysUntilExpiry = 30
+    fun `calculateStatus with 20 days should return YELLOW status`() = runTest {
+        val expiryDate = instantDaysFromNow(20)
 
-        val result = useCase(daysUntilExpiry)
+        val result = useCase(expiryDate, fixedClock)
 
-        assert(result is SemaphoreStatus.Safe)
-        val safe = result as SemaphoreStatus.Safe
-        assert(safe.status == "safe")
-        assert(safe.color == "#4CAF50")
-        assert(safe.daysUntil == 30)
+        assertEquals(SemaphoreStatus.YELLOW, result)
     }
 
-    // TEST 9: Boundary condition (exactly 8 days) -> Green
+    // TEST 8: YELLOW period (30 days) - boundary
     @Test
-    fun `calculateStatus with exactly 8 days boundary should return Safe status`() = runTest {
-        val daysUntilExpiry = 8
+    fun `calculateStatus with 30 days should return YELLOW status`() = runTest {
+        val expiryDate = instantDaysFromNow(30)
 
-        val result = useCase(daysUntilExpiry)
+        val result = useCase(expiryDate, fixedClock)
 
-        assert(result is SemaphoreStatus.Safe)
-        val safe = result as SemaphoreStatus.Safe
-        assert(safe.status == "safe")
-        assert(safe.color == "#4CAF50")
-        assert(safe.daysUntil == 8)
+        assertEquals(SemaphoreStatus.YELLOW, result)
     }
 
-    // TEST 10: Edge case - very large positive number
+    // TEST 9: GREEN period (31 days) - boundary
     @Test
-    fun `calculateStatus with 365 days should return Safe status`() = runTest {
-        val daysUntilExpiry = 365
+    fun `calculateStatus with 31 days should return GREEN status`() = runTest {
+        val expiryDate = instantDaysFromNow(31)
 
-        val result = useCase(daysUntilExpiry)
+        val result = useCase(expiryDate, fixedClock)
 
-        assert(result is SemaphoreStatus.Safe)
-        val safe = result as SemaphoreStatus.Safe
-        assert(safe.status == "safe")
-        assert(safe.color == "#4CAF50")
-        assert(safe.daysUntil == 365)
+        assertEquals(SemaphoreStatus.GREEN, result)
     }
 
-    // TEST 11: Edge case - very large negative number
+    // TEST 10: GREEN period (45 days)
     @Test
-    fun `calculateStatus with -365 days should return Expired status`() = runTest {
-        val daysUntilExpiry = -365
+    fun `calculateStatus with 45 days should return GREEN status`() = runTest {
+        val expiryDate = instantDaysFromNow(45)
 
-        val result = useCase(daysUntilExpiry)
+        val result = useCase(expiryDate, fixedClock)
 
-        assert(result is SemaphoreStatus.Expired)
-        val expired = result as SemaphoreStatus.Expired
-        assert(expired.status == "expired")
-        assert(expired.color == "#FF4444")
-        assert(expired.daysUntil == -365)
+        assertEquals(SemaphoreStatus.GREEN, result)
     }
 
-    // TEST 12: Verify status codes are correct
+    // TEST 11: Edge case - very large positive number
     @Test
-    fun `calculateStatus should return correct status codes`() = runTest {
-        val expired = useCase(-1) as SemaphoreStatus.Expired
-        val warning = useCase(5) as SemaphoreStatus.Warning
-        val safe = useCase(15) as SemaphoreStatus.Safe
+    fun `calculateStatus with 365 days should return GREEN status`() = runTest {
+        val expiryDate = instantDaysFromNow(365)
 
-        assert(expired.status == "expired")
-        assert(warning.status == "warning")
-        assert(safe.status == "safe")
+        val result = useCase(expiryDate, fixedClock)
+
+        assertEquals(SemaphoreStatus.GREEN, result)
     }
 
-    // TEST 13: Verify color codes are correct
+    // TEST 12: Edge case - very large negative number
     @Test
-    fun `calculateStatus should return correct color codes`() = runTest {
-        val expired = useCase(-1) as SemaphoreStatus.Expired
-        val warning = useCase(5) as SemaphoreStatus.Warning
-        val safe = useCase(15) as SemaphoreStatus.Safe
+    fun `calculateStatus with -365 days should return EXPIRED status`() = runTest {
+        val expiryDate = instantDaysFromNow(-365)
 
-        assert(expired.color == "#FF4444")  // Red
-        assert(warning.color == "#FFC107")  // Yellow/Orange
-        assert(safe.color == "#4CAF50")   // Green
+        val result = useCase(expiryDate, fixedClock)
+
+        assertEquals(SemaphoreStatus.EXPIRED, result)
+    }
+
+    // TEST 13: Verify new thresholds (correct vs old)
+    @Test
+    fun `verify new thresholds RED 15 YELLOW 30 GREEN 31`() = runTest {
+        // Old thresholds: 1-7 (warning), 8+ (safe)
+        // New thresholds: 1-15 (RED), 16-30 (YELLOW), 31+ (GREEN)
+
+        assertEquals(SemaphoreStatus.EXPIRED, useCase(instantDaysFromNow(0), fixedClock))
+        assertEquals(SemaphoreStatus.RED, useCase(instantDaysFromNow(15), fixedClock))
+        assertEquals(SemaphoreStatus.YELLOW, useCase(instantDaysFromNow(16), fixedClock))
+        assertEquals(SemaphoreStatus.YELLOW, useCase(instantDaysFromNow(30), fixedClock))
+        assertEquals(SemaphoreStatus.GREEN, useCase(instantDaysFromNow(31), fixedClock))
+        assertEquals(SemaphoreStatus.GREEN, useCase(instantDaysFromNow(45), fixedClock))
     }
 }

@@ -2,27 +2,34 @@ package com.decathlon.smartnutristock.domain.usecase
 
 import com.decathlon.smartnutristock.data.entity.ProductCatalogEntity
 import com.decathlon.smartnutristock.data.repository.ProductRepository
+import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
+import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 import javax.inject.Inject
 
 /**
  * Use case for calculating semaphore counters by status.
  *
  * Counter Logic:
- * - Groups products by expiry status (green/yellow/red)
+ * - Groups products by expiry status (green/yellow/red/expired)
  * - Returns count for each status
- * - Total count = green + yellow + red
+ * - Total count = green + yellow + red + expired
  *
- * Status Definitions:
- * - Green: 8+ days until expiry (safe)
- * - Yellow: 1-7 days until expiry (warning)
- * - Red: <=0 days until expiry (expired)
+ * Status Definitions (NEW):
+ * - Green: >30 days until expiry
+ * - Yellow: 16-30 days until expiry
+ * - Red: 1-15 days until expiry
+ * - Expired: <=0 days until expiry
  *
  * @return Flow of SemaphoreCounters (reactive updates)
  */
 class GetSemaphoreCountersUseCase @Inject constructor(
-    private val productRepository: ProductRepository
+    private val productRepository: ProductRepository,
+    private val calculateStatusUseCase: CalculateStatusUseCase
 ) {
 
     /**
@@ -39,56 +46,30 @@ class GetSemaphoreCountersUseCase @Inject constructor(
 
     /**
      * Calculate counters from product list.
-     * Uses CalculateStatusUseCase logic to determine status.
+     * Uses CalculateStatusUseCase to determine status with NEW thresholds.
+     *
+     * TODO: Replace ProductRepository with StockRepository in Fase 2.3 (Hilt Implementation)
+     * TODO: Remove daysUntilExpiry -> Instant conversion when StockRepository is used
      */
     private fun calculateCounters(products: List<ProductCatalogEntity>): SemaphoreCounters {
-        val greenCount = products.count { it.daysUntilExpiry >= 8 }
-        val yellowCount = products.count { it.daysUntilExpiry in 1..7 }
-        val redCount = products.count { it.daysUntilExpiry <= 0 }
+        val clock = Clock.systemUTC()
+        val now = Instant.now(clock)
+
+        // Helper to convert daysUntilExpiry (Int) to Instant for CalculateStatusUseCase
+        fun toInstant(daysUntil: Int): Instant {
+            return now.plus(Duration.ofDays(daysUntil.toLong()))
+        }
+
+        val greenCount = products.count { calculateStatusUseCase(toInstant(it.daysUntilExpiry)) == SemaphoreStatus.GREEN }
+        val yellowCount = products.count { calculateStatusUseCase(toInstant(it.daysUntilExpiry)) == SemaphoreStatus.YELLOW }
+        val redCount = products.count { calculateStatusUseCase(toInstant(it.daysUntilExpiry)) == SemaphoreStatus.RED }
+        val expiredCount = products.count { calculateStatusUseCase(toInstant(it.daysUntilExpiry)) == SemaphoreStatus.EXPIRED }
 
         return SemaphoreCounters(
-            green = greenCount,
-            yellow = yellowCount,
             red = redCount,
-            total = products.size
+            yellow = yellowCount,
+            green = greenCount,
+            expired = expiredCount
         )
-    }
-}
-
-/**
- * Domain model for semaphore counters.
- * Aggregated statistics for dashboard display.
- */
-data class SemaphoreCounters(
-    val green: Int,
-    val yellow: Int,
-    val red: Int,
-    val total: Int
-) {
-    /**
-     * Calculate percentage of expired products.
-     */
-    fun expiredPercentage(): Float = if (total > 0) {
-        (red.toFloat() / total) * 100
-    } else {
-        0f
-    }
-
-    /**
-     * Calculate percentage of warning products.
-     */
-    fun warningPercentage(): Float = if (total > 0) {
-        (yellow.toFloat() / total) * 100
-    } else {
-        0f
-    }
-
-    /**
-     * Calculate percentage of safe products.
-     */
-    fun safePercentage(): Float = if (total > 0) {
-        (green.toFloat() / total) * 100
-    } else {
-        0f
     }
 }
