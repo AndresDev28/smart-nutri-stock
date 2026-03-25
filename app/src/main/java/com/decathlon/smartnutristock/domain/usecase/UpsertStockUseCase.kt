@@ -1,55 +1,35 @@
 package com.decathlon.smartnutristock.domain.usecase
 
-import com.decathlon.smartnutristock.data.entity.ProductCatalogEntity
-import com.decathlon.smartnutristock.data.repository.ProductRepository
-import com.decathlon.smartnutristock.data.repository.RegisterResult
-import com.decathlon.smartnutristock.data.repository.RegisterResult.Failure
-import com.decathlon.smartnutristock.data.repository.RegisterResult.Failure.InvalidEan
-import com.decathlon.smartnutristock.data.repository.RegisterResult.Failure.InvalidPackSize
-import com.decathlon.smartnutristock.data.repository.RegisterResult.Success
+import com.decathlon.smartnutristock.domain.model.Batch
+import com.decathlon.smartnutristock.domain.model.UpsertBatchResult
+import com.decathlon.smartnutristock.domain.repository.StockRepository
 import java.time.Instant
 import javax.inject.Inject
 
 /**
- * Use case for upserting (creating or updating) stock entries.
+ * Use case for upserting product stock (batches).
  *
- * Business Logic:
- * - Validates quantity (must be positive)
- * - Checks if product exists in catalog
- * - Creates stock entry with product information
+ * This use case handles batch creation/updates with automatic
+ * status calculation and cleanup of depleted batches.
  *
- * @return RegisterResult with Success (containing product info) or Failure
+ * Replaces old ProductCatalogEntity-based stock management.
  */
 class UpsertStockUseCase @Inject constructor(
-    private val productRepository: ProductRepository
+    private val stockRepository: StockRepository
 ) {
 
     /**
-     * Upsert stock entry for a product.
+     * Upsert a batch into stock.
      *
-     * @param ean Product EAN (13 digits)
-     * @param expiryDate Expiry date (Instant)
-     * @param quantity Stock quantity (must be positive)
-     * @return RegisterResult.Success with ProductCatalogEntity, or RegisterResult.Failure
+     * This operation:
+     * - Calculates semaphore status automatically
+     * - Inserts or updates batch based on composite key (ean + expiryDate)
+     * - Automatically deletes batches when quantity <= 0 (Golden Rule)
+     *
+     * @param batch The batch to upsert
+     * @return UpsertBatchResult indicating success/deleted/error
      */
-    suspend operator fun invoke(
-        ean: String,
-        expiryDate: Instant?,
-        quantity: Int
-    ): RegisterResult {
-        // Validation: Quantity must be positive
-        if (quantity <= 0) {
-            return InvalidPackSize("La cantidad debe ser positiva")
-        }
-
-        // Check if product exists in catalog
-        val product = productRepository.findByEan(ean)
-        if (product == null) {
-            return InvalidEan("El producto no existe en el catálogo")
-        }
-
-        // For MVP, we return success with the product info
-        // In a full implementation, this would create/update a stock entry table
-        return Success(product)
+    suspend fun upsert(batch: Batch): UpsertBatchResult {
+        return stockRepository.upsert(batch)
     }
 }

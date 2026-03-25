@@ -2,6 +2,8 @@ package com.decathlon.smartnutristock.di
 
 import com.decathlon.smartnutristock.data.repository.ProductRepository
 import com.decathlon.smartnutristock.data.repository.ProductRepositoryImpl
+import com.decathlon.smartnutristock.domain.repository.StockRepository
+import com.decathlon.smartnutristock.data.repository.StockRepositoryImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -25,4 +27,13 @@ abstract class RepositoryModule {
     abstract fun bindProductRepository(
         productRepositoryImpl: ProductRepositoryImpl
     ): ProductRepository
+
+    /**
+     * Bind StockRepository interface to StockRepositoryImpl.
+     */
+    @Binds
+    @Singleton
+    abstract fun bindStockRepository(
+        impl: StockRepositoryImpl
+    ): StockRepository
 }

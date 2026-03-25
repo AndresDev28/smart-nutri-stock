@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.decathlon.smartnutristock.domain.usecase.SemaphoreCounters
+import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
 
 /**
  * Dashboard Screen with Semaphore Counters.

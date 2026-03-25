@@ -1,23 +1,21 @@
 package com.decathlon.smartnutristock.domain.usecase
 
+import com.decathlon.smartnutristock.domain.model.Batch
+import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
+import com.decathlon.smartnutristock.domain.model.UpsertBatchResult
+import com.decathlon.smartnutristock.domain.repository.StockRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
-import com.decathlon.smartnutristock.data.entity.ProductCatalogEntity
-import com.decathlon.smartnutristock.data.repository.ProductRepository
-import com.decathlon.smartnutristock.data.repository.RegisterResult
-import com.decathlon.smartnutristock.data.repository.RegisterResult.Failure.InvalidPackSize
-import com.decathlon.smartnutristock.data.repository.RegisterResult.Failure.InvalidEan
-import com.decathlon.smartnutristock.data.repository.RegisterResult.Success
 import java.time.Instant
 
 class UpsertStockUseCaseTest {
 
     private lateinit var useCase: UpsertStockUseCase
-    private lateinit var mockRepository: ProductRepository
+    private lateinit var mockRepository: StockRepository
 
     @Before
     fun setup() {
@@ -31,22 +29,21 @@ class UpsertStockUseCaseTest {
         val ean = "8435489901234"
         val expiryDate = Instant.now()
         val quantity = 10
-        val product = ProductCatalogEntity(
+        val batch = Batch(
+            id = "batch-1",
             ean = ean,
-            name = "Barra de Proteína",
-            packSize = 20,
-            createdAt = System.currentTimeMillis() / 1000,
-            createdBy = 1L
+            quantity = quantity,
+            expiryDate = expiryDate,
+            status = SemaphoreStatus.GREEN
         )
 
-        coEvery { mockRepository.findByEan(ean) } returns product
+        coEvery { mockRepository.upsert(batch) } returns UpsertBatchResult.Success(SemaphoreStatus.GREEN)
 
-        val result = useCase(ean, expiryDate, quantity)
+        val result = useCase.upsert(batch)
 
-        assert(result is Success)
-        val returnedProduct = (result as Success).product
-        assert(returnedProduct.ean == ean)
-        assert(returnedProduct.name == "Barra de Proteína")
+        assert(result is UpsertBatchResult.Success)
+        val status = (result as UpsertBatchResult.Success).status
+        assert(status == SemaphoreStatus.GREEN)
     }
 
     // TEST 2: Update existing stock entry
@@ -55,21 +52,21 @@ class UpsertStockUseCaseTest {
         val ean = "8435489901234"
         val expiryDate = Instant.now()
         val quantity = 15
-        val product = ProductCatalogEntity(
+        val batch = Batch(
+            id = "batch-2",
             ean = ean,
-            name = "Barra de Proteína",
-            packSize = 20,
-            createdAt = System.currentTimeMillis() / 1000,
-            createdBy = 1L
+            quantity = quantity,
+            expiryDate = expiryDate,
+            status = SemaphoreStatus.YELLOW
         )
 
-        coEvery { mockRepository.findByEan(ean) } returns product
+        coEvery { mockRepository.upsert(batch) } returns UpsertBatchResult.Success(SemaphoreStatus.YELLOW)
 
-        val result = useCase(ean, expiryDate, quantity)
+        val result = useCase.upsert(batch)
 
-        assert(result is Success)
-        val returnedProduct = (result as Success).product
-        assert(returnedProduct.ean == ean)
+        assert(result is UpsertBatchResult.Success)
+        val status = (result as UpsertBatchResult.Success).status
+        assert(status == SemaphoreStatus.YELLOW)
     }
 
     // TEST 3: Upsert with valid quantity
@@ -78,60 +75,83 @@ class UpsertStockUseCaseTest {
         val ean = "8435489901234"
         val expiryDate = Instant.now()
         val quantity = 100
-        val product = ProductCatalogEntity(
+        val batch = Batch(
+            id = "batch-3",
             ean = ean,
-            name = "Arroz Blanco",
-            packSize = 1000,
-            createdAt = System.currentTimeMillis() / 1000,
-            createdBy = 1L
+            quantity = quantity,
+            expiryDate = expiryDate,
+            status = SemaphoreStatus.GREEN
         )
 
-        coEvery { mockRepository.findByEan(ean) } returns product
+        coEvery { mockRepository.upsert(batch) } returns UpsertBatchResult.Success(SemaphoreStatus.GREEN)
 
-        val result = useCase(ean, expiryDate, quantity)
+        val result = useCase.upsert(batch)
 
-        assert(result is Success)
+        assert(result is UpsertBatchResult.Success)
     }
 
-    // TEST 4: Invalid quantity (zero)
+    // TEST 4: Delete batch with zero quantity (Golden Rule)
     @Test
-    fun `upsertStock with zero quantity should return InvalidPackSize`() = runTest {
+    fun `upsertStock with zero quantity should return Deleted`() = runTest {
         val ean = "8435489901234"
         val expiryDate = Instant.now()
         val quantity = 0
+        val batch = Batch(
+            id = "batch-4",
+            ean = ean,
+            quantity = quantity,
+            expiryDate = expiryDate,
+            status = SemaphoreStatus.EXPIRED
+        )
 
-        val result = useCase(ean, expiryDate, quantity)
+        coEvery { mockRepository.upsert(batch) } returns UpsertBatchResult.Deleted
 
-        assert(result is InvalidPackSize)
-        assert((result as InvalidPackSize).message == "La cantidad debe ser positiva")
+        val result = useCase.upsert(batch)
+
+        assert(result is UpsertBatchResult.Deleted)
     }
 
-    // TEST 5: Invalid quantity (negative)
+    // TEST 5: Delete batch with negative quantity (Golden Rule)
     @Test
-    fun `upsertStock with negative quantity should return InvalidPackSize`() = runTest {
+    fun `upsertStock with negative quantity should return Deleted`() = runTest {
         val ean = "8435489901234"
         val expiryDate = Instant.now()
         val quantity = -5
+        val batch = Batch(
+            id = "batch-5",
+            ean = ean,
+            quantity = quantity,
+            expiryDate = expiryDate,
+            status = SemaphoreStatus.EXPIRED
+        )
 
-        val result = useCase(ean, expiryDate, quantity)
+        coEvery { mockRepository.upsert(batch) } returns UpsertBatchResult.Deleted
 
-        assert(result is InvalidPackSize)
-        assert((result as InvalidPackSize).message == "La cantidad debe ser positiva")
+        val result = useCase.upsert(batch)
+
+        assert(result is UpsertBatchResult.Deleted)
     }
 
-    // TEST 6: Null product (product not found)
+    // TEST 6: Repository error handling
     @Test
-    fun `upsertStock with non-existent product should return InvalidEan`() = runTest {
+    fun `upsertStock should return Error when repository fails`() = runTest {
         val ean = "8435489901234"
         val expiryDate = Instant.now()
         val quantity = 10
+        val batch = Batch(
+            id = "batch-6",
+            ean = ean,
+            quantity = quantity,
+            expiryDate = expiryDate,
+            status = SemaphoreStatus.GREEN
+        )
 
-        coEvery { mockRepository.findByEan(ean) } returns null
+        coEvery { mockRepository.upsert(batch) } returns UpsertBatchResult.Error("Database error")
 
-        val result = useCase(ean, expiryDate, quantity)
+        val result = useCase.upsert(batch)
 
-        assert(result is InvalidEan)
-        assert((result as InvalidEan).message == "El producto no existe en el catálogo")
+        assert(result is UpsertBatchResult.Error)
+        assert((result as UpsertBatchResult.Error).message == "Database error")
     }
 
     // TEST 7: Edge case - quantity equals 1 (boundary)
@@ -140,73 +160,85 @@ class UpsertStockUseCaseTest {
         val ean = "8435489901234"
         val expiryDate = Instant.now()
         val quantity = 1
-        val product = ProductCatalogEntity(
+        val batch = Batch(
+            id = "batch-7",
             ean = ean,
-            name = "Barra de Proteína",
-            packSize = 20,
-            createdAt = System.currentTimeMillis() / 1000,
-            createdBy = 1L
+            quantity = quantity,
+            expiryDate = expiryDate,
+            status = SemaphoreStatus.RED
         )
 
-        coEvery { mockRepository.findByEan(ean) } returns product
+        coEvery { mockRepository.upsert(batch) } returns UpsertBatchResult.Success(SemaphoreStatus.RED)
 
-        val result = useCase(ean, expiryDate, quantity)
+        val result = useCase.upsert(batch)
 
-        assert(result is Success)
+        assert(result is UpsertBatchResult.Success)
     }
 
-    // TEST 8: Null expiry date (should still work)
+    // TEST 8: Batch with RED semaphore status
     @Test
-    fun `upsertStock with null expiry date should return Success`() = runTest {
+    fun `upsertStock with RED status should return Success with RED`() = runTest {
         val ean = "8435489901234"
-        val expiryDate: Instant? = null
+        val expiryDate = Instant.now().plusSeconds(10 * 24 * 60 * 60) // 10 days from now
         val quantity = 10
-        val product = ProductCatalogEntity(
+        val batch = Batch(
+            id = "batch-8",
             ean = ean,
-            name = "Barra de Proteína",
-            packSize = 20,
-            createdAt = System.currentTimeMillis() / 1000,
-            createdBy = 1L
+            quantity = quantity,
+            expiryDate = expiryDate,
+            status = SemaphoreStatus.RED
         )
 
-        coEvery { mockRepository.findByEan(ean) } returns product
+        coEvery { mockRepository.upsert(batch) } returns UpsertBatchResult.Success(SemaphoreStatus.RED)
 
-        val result = useCase(ean, expiryDate, quantity)
+        val result = useCase.upsert(batch)
 
-        assert(result is Success)
+        assert(result is UpsertBatchResult.Success)
+        val status = (result as UpsertBatchResult.Success).status
+        assert(status == SemaphoreStatus.RED)
     }
 
-    // TEST 9: Verify repository is NOT called for invalid quantity
+    // TEST 9: Batch with YELLOW semaphore status
     @Test
-    fun `upsertStock should NOT call repository when quantity is zero`() = runTest {
+    fun `upsertStock with YELLOW status should return Success with YELLOW`() = runTest {
+        val ean = "8435489901234"
+        val expiryDate = Instant.now().plusSeconds(20 * 24 * 60 * 60) // 20 days from now
+        val quantity = 25
+        val batch = Batch(
+            id = "batch-9",
+            ean = ean,
+            quantity = quantity,
+            expiryDate = expiryDate,
+            status = SemaphoreStatus.YELLOW
+        )
+
+        coEvery { mockRepository.upsert(batch) } returns UpsertBatchResult.Success(SemaphoreStatus.YELLOW)
+
+        val result = useCase.upsert(batch)
+
+        assert(result is UpsertBatchResult.Success)
+        val status = (result as UpsertBatchResult.Success).status
+        assert(status == SemaphoreStatus.YELLOW)
+    }
+
+    // TEST 10: Verify repository is called for upsert
+    @Test
+    fun `upsertStock should call repository for upsert`() = runTest {
         val ean = "8435489901234"
         val expiryDate = Instant.now()
-        val quantity = 0
-
-        val result = useCase(ean, expiryDate, quantity)
-
-        coVerify(exactly = 0) { mockRepository.findByEan(any()) }
-        assert(result is InvalidPackSize)
-    }
-
-    // TEST 10: Verify repository is called for valid data
-    @Test
-    fun `upsertStock should call repository for valid data`() = runTest {
-        val ean = "8435489901234"
-        val expiryDate = Instant.now()
         val quantity = 10
-        val product = ProductCatalogEntity(
+        val batch = Batch(
+            id = "batch-10",
             ean = ean,
-            name = "Barra de Proteína",
-            packSize = 20,
-            createdAt = System.currentTimeMillis() / 1000,
-            createdBy = 1L
+            quantity = quantity,
+            expiryDate = expiryDate,
+            status = SemaphoreStatus.GREEN
         )
 
-        coEvery { mockRepository.findByEan(ean) } returns product
+        coEvery { mockRepository.upsert(batch) } returns UpsertBatchResult.Success(SemaphoreStatus.GREEN)
 
-        useCase(ean, expiryDate, quantity)
+        useCase.upsert(batch)
 
-        coVerify { mockRepository.findByEan(ean) }
+        coVerify { mockRepository.upsert(batch) }
     }
 }
