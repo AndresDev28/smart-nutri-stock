@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.0.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v1.1.0...v2.0.0) (2026-03-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* **data:** Database schema update from v2 to v3 with active_stocks table
+* **domain:** SemaphoreStatus enum values and CalculateStatusUseCase signature changed
+
+### Features
+
+* add haptic feedback on barcode detection ([e1b3b41](https://github.com/AndresDev28/smart-nutri-stock/commit/e1b3b41c3359906d62472be6664c16064114813e))
+* **data:** restore Phase 1.5 Data Layer - ActiveStockEntity, StockDao, Database v3 ([261d000](https://github.com/AndresDev28/smart-nutri-stock/commit/261d0006e07b33b1c6171839405bd931f0836920))
+* **di:** complete Phase 2.3 Hilt Implementation ([626a8a5](https://github.com/AndresDev28/smart-nutri-stock/commit/626a8a572c61296614200db4acd0c39f0df15271))
+* implement HistoryScreen for EPIC-05 ([9108373](https://github.com/AndresDev28/smart-nutri-stock/commit/9108373be193b99375f25982e2ee97bd1b94e136))
+* **scanner:** implement ProductRegistrationBottomSheet with thumb zone optimization ([ca0adb9](https://github.com/AndresDev28/smart-nutri-stock/commit/ca0adb91d457855f2d81b5e2ac8f07dcf9b79564))
+* **scanner:** implement ScannerScreen with CameraX and ML Kit ([da4b4be](https://github.com/AndresDev28/smart-nutri-stock/commit/da4b4be06a5d0006c950b14e43fe8ce5255d507c))
+* **scanner:** implement ScannerViewModel with state management ([96acae5](https://github.com/AndresDev28/smart-nutri-stock/commit/96acae56725539362e72c0965ea7ec732c29c365))
+* **ui:** add Decathlon corporate color and Scaffold structure to MainActivity ([2c30cb7](https://github.com/AndresDev28/smart-nutri-stock/commit/2c30cb7b5fe77e2e7400c86f61ac35bc9a8b6d07))
+
+
+### Bug Fixes
+
+* enable ML Kit barcode detection with ImageAnalysis connection ([fa033bd](https://github.com/AndresDev28/smart-nutri-stock/commit/fa033bd3746b1eb4ea7279bdc639f166a53e9226))
+* **phase2.4:** resolve verification warnings ([e838154](https://github.com/AndresDev28/smart-nutri-stock/commit/e838154f35bbe92053ca5e41cbc78f611815e071))
+* resolve compilation errors and implement scanner navigation ([2958371](https://github.com/AndresDev28/smart-nutri-stock/commit/2958371d7ee6c9e6cfc0b3059703bd4e5afa55a6))
+* resolve HistoryScreen recomposition loop and add history navigation ([6d9f989](https://github.com/AndresDev28/smart-nutri-stock/commit/6d9f989c566cdce5356d3004a01507f76b80274b))
+
+
+### Code Refactoring
+
+* **domain:** unify SemaphoreStatus and refactor use cases for batch management ([a582831](https://github.com/AndresDev28/smart-nutri-stock/commit/a5828314c13dca267540698d04850648b15a6920))
+
 ## [1.1.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v1.0.0...v1.1.0) (2026-03-19)
 
 
