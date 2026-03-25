@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -270,7 +271,8 @@ class ScannerViewModel @Inject constructor(
 
             try {
                 // Calculate status from expiry date
-                val status = calculateStatusUseCase(expiryDate)
+                val clock = Clock.systemUTC()
+                val status = calculateStatusUseCase(expiryDate, clock)
 
                 // Build Batch object
                 val batch = Batch(

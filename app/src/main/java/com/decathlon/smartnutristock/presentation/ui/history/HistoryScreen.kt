@@ -161,6 +161,7 @@ private fun ProductCard(
             Pair(Color(0xFFFFC107), "Por vencer")
         }
         com.decathlon.smartnutristock.domain.model.SemaphoreStatus.RED -> {
+            @Suppress("DEPRECATION")
             Pair(Color(0xFFFF4444), "Próximo a vencer")
         }
         com.decathlon.smartnutristock.domain.model.SemaphoreStatus.EXPIRED -> {

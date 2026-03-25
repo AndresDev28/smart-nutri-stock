@@ -32,7 +32,8 @@ class StockRepositoryImpl @Inject constructor(
     override suspend fun upsert(batch: Batch): UpsertBatchResult {
         return try {
             // 1. Calculate status based on expiry date
-            val status = calculateStatusUseCase(batch.expiryDate)
+            val clock = Clock.systemUTC()
+            val status = calculateStatusUseCase(batch.expiryDate, clock)
 
             // 2. Golden Rule: If quantity is 0 or less, delete the batch
             if (batch.quantity <= 0) {
@@ -86,10 +87,13 @@ class StockRepositoryImpl @Inject constructor(
         var green = 0
         var expired = 0
 
+        val clock = Clock.systemUTC()
+
+        @Suppress("DEPRECATION")
         entities.forEach { entity ->
-            when (calculateStatusUseCase(entity.expiryDate)) {
+            when (calculateStatusUseCase(entity.expiryDate, clock)) {
                 SemaphoreStatus.EXPIRED -> expired++
-                SemaphoreStatus.RED -> red++
+                SemaphoreStatus.RED -> red++ // Kept for backward compatibility, but never used
                 SemaphoreStatus.YELLOW -> yellow++
                 SemaphoreStatus.GREEN -> green++
             }
@@ -110,12 +114,13 @@ class StockRepositoryImpl @Inject constructor(
      * Extension function to convert ActiveStockEntity to Batch domain model.
      */
     private fun ActiveStockEntity.toDomainModel(): Batch {
+        val clock = Clock.systemUTC()
         return Batch(
             id = this.id,
             ean = this.ean,
             quantity = this.quantity,
             expiryDate = this.expiryDate,
-            status = calculateStatusUseCase(this.expiryDate)
+            status = calculateStatusUseCase(this.expiryDate, clock)
         )
     }
 

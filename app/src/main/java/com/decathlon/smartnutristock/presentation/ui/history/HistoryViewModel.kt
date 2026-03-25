@@ -57,15 +57,17 @@ class HistoryViewModel @Inject constructor(
                 // Use first() from flow to get products once, not collect
                 val products = getAllProductsUseCase().first()
 
+                // Use a fixed clock for consistency
+                val clock = Clock.systemUTC()
+
                 // Calculate status for each product
                 val productsWithStatus = products.map { product ->
-                    val clock = Clock.systemUTC()
                     val now = Instant.now(clock)
                     val expiryDate = now.plus(Duration.ofDays(product.daysUntilExpiry.toLong()))
 
                     ProductWithStatus(
                         product = product,
-                        status = calculateStatusUseCase(expiryDate)
+                        status = calculateStatusUseCase(expiryDate, clock)
                     )
                 }
 
