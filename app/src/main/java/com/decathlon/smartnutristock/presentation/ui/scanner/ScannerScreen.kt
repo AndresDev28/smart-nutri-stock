@@ -10,31 +10,42 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.camera.core.ExperimentalGetImage
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -52,6 +64,9 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZonedDateTime
 
 /**
  * Scanner screen with barcode scanning functionality.
@@ -78,6 +93,14 @@ fun ScannerScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     val successMessage by viewModel.successMessage.collectAsState()
     val foundProduct by viewModel.foundProduct.collectAsState()
+    val batchInputState by viewModel.batchInputState.collectAsState()
+    val expiryDate by viewModel.expiryDate.collectAsState()
+    val quantity by viewModel.quantity.collectAsState()
+    val currentProductInfo by viewModel.currentProductInfo.collectAsState()
+
+    // Quantity input state (local)
+    var quantityInput by remember { mutableStateOf("") }
+    var quantityError by remember { mutableStateOf<String?>(null) }
 
     // Camera controller
     val cameraController = remember {
@@ -254,6 +277,141 @@ fun ScannerScreen(
                 }
             )
         }
+    }
+
+    // Batch Input Dialogs
+    val productInfoVal = currentProductInfo
+
+    // DatePickerDialog for expiry date
+    if (batchInputState is BatchInputStep.SelectExpiryDate && productInfoVal != null) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = System.currentTimeMillis(),
+            selectableDates = object : androidx.compose.material3.SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    // Only allow future dates (no past dates for expiry)
+                    return utcTimeMillis >= System.currentTimeMillis()
+                }
+            }
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { viewModel.onCancelBatchInput() },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val instant = Instant.ofEpochMilli(millis)
+                            viewModel.onExpiryDateSelected(instant)
+                        } ?: viewModel.onCancelBatchInput()
+                    }
+                ) {
+                    Text("Confirmar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.onCancelBatchInput() }) {
+                    Text("Cancelar")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    // Quantity Input Dialog
+    if (batchInputState is BatchInputStep.EnterQuantity && productInfoVal != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.onCancelBatchInput() },
+            title = {
+                Text(text = "Ingresar Cantidad")
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Producto: ${productInfoVal.name}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Vencimiento: ${expiryDate?.let { 
+                            ZonedDateTime.ofInstant(it, ZoneId.systemDefault()).toLocalDate()
+                        }}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = quantityInput,
+                        onValueChange = {
+                            quantityInput = it
+                            quantityError = null
+                        },
+                        label = { Text("Cantidad") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = quantityError != null,
+                        supportingText = quantityError?.let { { Text(it) } },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val qty = quantityInput.toIntOrNull()
+                        if (qty != null && qty > 0) {
+                            viewModel.onQuantityEntered(qty)
+                            quantityInput = ""
+                        } else {
+                            quantityError = "Ingrese una cantidad válida"
+                        }
+                    }
+                ) {
+                    Text("Confirmar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.onCancelBatchInput()
+                    quantityInput = ""
+                    quantityError = null
+                }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // Confirmation Dialog
+    if (batchInputState is BatchInputStep.Confirming && productInfoVal != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.onCancelBatchInput() },
+            title = {
+                Text(text = "Confirmar Lote")
+            },
+            text = {
+                Column {
+                    Text(text = "Producto: ${productInfoVal.name}")
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = "EAN: ${productInfoVal.ean}")
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = "Vencimiento: ${expiryDate?.let { 
+                        ZonedDateTime.ofInstant(it, ZoneId.systemDefault()).toLocalDate()
+                    }}")
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = "Cantidad: $quantity")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.onConfirmBatch() }) {
+                    Text("Guardar Lote")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.onCancelBatchInput() }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 }
 
