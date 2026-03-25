@@ -8,6 +8,7 @@ import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
 import com.decathlon.smartnutristock.domain.model.UpsertBatchResult
 import com.decathlon.smartnutristock.domain.repository.StockRepository
 import com.decathlon.smartnutristock.domain.usecase.CalculateStatusUseCase
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.Clock
@@ -27,6 +28,7 @@ class StockRepositoryImpl @Inject constructor(
     private val calculateStatusUseCase: CalculateStatusUseCase
 ) : StockRepository {
 
+    @Transaction
     override suspend fun upsert(batch: Batch): UpsertBatchResult {
         return try {
             // 1. Calculate status based on expiry date
