@@ -10,11 +10,15 @@ import java.time.Instant
  * @property quantity Number of units in this batch
  * @property expiryDate Expiry date of this batch (UTC)
  * @property status Calculated semaphore status based on expiry date
+ * @property name Product name (nullable - from product_catalog)
+ * @property packSize Pack size in grams (nullable - from product_catalog)
  */
 data class Batch(
     val id: String,
     val ean: String,
     val quantity: Int,
     val expiryDate: Instant,
-    val status: SemaphoreStatus
+    val status: SemaphoreStatus,
+    val name: String? = null,
+    val packSize: Int? = null
 )

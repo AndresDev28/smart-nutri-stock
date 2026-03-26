@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -200,8 +201,10 @@ class ScannerViewModel @Inject constructor(
                         // Product registered successfully
                         _isBottomSheetVisible.value = false
                         _foundProduct.value = result.product
+                        _currentProductInfo.value = result.product
                         _isLoading.value = false
-                        _currentEan.value = null
+                        // _currentEan.value = null  // Removed to enable chain flow to batch input
+                        _batchInputState.value = BatchInputStep.SelectExpiryDate
                         _successMessage.value = "Producto registrado exitosamente"
                     }
                     is Failure -> {
@@ -270,7 +273,8 @@ class ScannerViewModel @Inject constructor(
 
             try {
                 // Calculate status from expiry date
-                val status = calculateStatusUseCase(expiryDate)
+                val clock = Clock.systemUTC()
+                val status = calculateStatusUseCase(expiryDate, clock)
 
                 // Build Batch object
                 val batch = Batch(

@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.decathlon.smartnutristock.data.entity.ActiveStockEntity
+import com.decathlon.smartnutristock.data.entity.BatchWithProductInfo
 import java.time.Instant
 
 /**
@@ -96,4 +97,28 @@ interface StockDao {
      */
     @Query("SELECT COUNT(*) FROM active_stocks")
     suspend fun count(): Int
+
+    /**
+     * Retrieve all batches with product catalog information.
+     *
+     * This query JOINs active_stocks with product_catalog to get complete batch information
+     * including product name and pack size.
+     *
+     * @return List of batches with product info, ordered by expiry date
+     */
+    @Query("""
+        SELECT
+            a.id,
+            a.ean,
+            a.quantity,
+            a.expiryDate,
+            a.createdAt,
+            a.updatedAt,
+            p.name as productName,
+            p.packSize
+        FROM active_stocks a
+        LEFT JOIN product_catalog p ON a.ean = p.ean
+        ORDER BY a.expiryDate ASC
+    """)
+    suspend fun findAllWithProductInfo(): List<BatchWithProductInfo>
 }

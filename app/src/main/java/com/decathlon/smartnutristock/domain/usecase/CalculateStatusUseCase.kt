@@ -2,18 +2,21 @@ package com.decathlon.smartnutristock.domain.usecase
 
 import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
 import java.time.Clock
-import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import javax.inject.Inject
 
 /**
  * Use case for calculating expiry status semaphore based on expiry date.
  *
  * Semaphore Logic (NEW - correct thresholds):
- * - 🔴 EXPIRED: Already past expiry date (≤0 days)
- * - 🔴 RED: ≤15 days until expiry
- * - 🟡 YELLOW: 16-30 days until expiry
- * - 🟢 GREEN: >30 days until expiry
+ * - 🔴 EXPIRED: expiryDate <= Today (already past or same day)
+ * - 🟡 YELLOW: Tomorrow to Today + 7 days (inclusive) - urgent attention needed
+ * - 🟢 GREEN: > Today + 7 days - safe
+ *
+ * IMPORTANT: Uses LocalDate comparison to avoid precision issues with Instant.
+ * Comparing dates (ignoring time) ensures consistent behavior regardless of time of day.
  *
  * @return SemaphoreStatus with appropriate status based on expiry date
  */
@@ -27,20 +30,24 @@ class CalculateStatusUseCase @Inject constructor() {
      * @return SemaphoreStatus with appropriate status
      */
     operator fun invoke(expiryDate: Instant, clock: Clock = Clock.systemUTC()): SemaphoreStatus {
+        val zoneId = ZoneId.of("UTC")
         val now = Instant.now(clock)
-        val daysUntilExpiry = Duration.between(now, expiryDate).toDays().toInt()
+
+        // Convert both to LocalDate (date only, no time) to avoid precision issues
+        val expiryLocalDate = expiryDate.atZone(zoneId).toLocalDate()
+        val todayLocalDate = now.atZone(zoneId).toLocalDate()
+
+        // Calculate days between dates (can be negative, zero, or positive)
+        val daysUntilExpiry = java.time.temporal.ChronoUnit.DAYS.between(todayLocalDate, expiryLocalDate).toInt()
 
         return when {
-            // EXPIRED: Already past expiry date
+            // EXPIRED: Today or in the past (<= 0 days)
             daysUntilExpiry <= 0 -> SemaphoreStatus.EXPIRED
 
-            // RED: High priority - ≤15 days until expiry
-            daysUntilExpiry in 1..15 -> SemaphoreStatus.RED
+            // YELLOW: Tomorrow to Today + 7 days (1-7 days) - urgent attention needed
+            daysUntilExpiry in 1..7 -> SemaphoreStatus.YELLOW
 
-            // YELLOW: Medium priority - 16-30 days until expiry
-            daysUntilExpiry in 16..30 -> SemaphoreStatus.YELLOW
-
-            // GREEN: Low priority - >30 days until expiry
+            // GREEN: Beyond 7 days (>7 days) - safe
             else -> SemaphoreStatus.GREEN
         }
     }
