@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.1](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.0.0...v2.0.1) (2026-03-26)
+
+
+### Bug Fixes
+
+* **history:** migrate HistoryScreen to use active_stocks data source ([7cf3a78](https://github.com/AndresDev28/smart-nutri-stock/commit/7cf3a78e5689b1b3e548e3672fe6c27f988c6bcc))
+* **scanner:** chain product registration to batch input flow ([a81d601](https://github.com/AndresDev28/smart-nutri-stock/commit/a81d60173bf53fc7d6c43db5a380f75a3d9b2682))
+* **semaphore:** use LocalDate comparison to fix precision bug ([eb0c2e6](https://github.com/AndresDev28/smart-nutri-stock/commit/eb0c2e6d4a4fc4d6ebb387364122e12e14b18524))
+* **test:** implement missing findAllWithProductInfo() in DummyStockRepository ([b06b4c9](https://github.com/AndresDev28/smart-nutri-stock/commit/b06b4c957ffc33397d839388f73d5d7d239fec97))
+
 ## [2.0.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v1.1.0...v2.0.0) (2026-03-25)
 
 
