@@ -146,6 +146,10 @@ private class DummyStockRepository : StockRepository {
         return kotlinx.coroutines.flow.emptyFlow()
     }
 
+    override suspend fun findAllWithProductInfo(): Flow<Batch> {
+        return kotlinx.coroutines.flow.emptyFlow()
+    }
+
     override suspend fun getSemaphoreCounters(): Flow<SemaphoreCounters> {
         return kotlinx.coroutines.flow.flowOf(SemaphoreCounters(0, 0, 0, 0))
     }
