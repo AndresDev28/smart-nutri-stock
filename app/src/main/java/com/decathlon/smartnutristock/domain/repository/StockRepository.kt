@@ -72,4 +72,14 @@ interface StockRepository {
      * @return Number of rows deleted
      */
     suspend fun deleteByEan(ean: String): Int
+
+    /**
+     * Retrieve all batches with product catalog information.
+     *
+     * This method returns batches enriched with product name and pack size
+     * from the product_catalog table.
+     *
+     * @return Flow of all batches with product info
+     */
+    suspend fun findAllWithProductInfo(): Flow<Batch>
 }

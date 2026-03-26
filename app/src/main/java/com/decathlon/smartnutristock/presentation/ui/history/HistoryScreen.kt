@@ -33,16 +33,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.decathlon.smartnutristock.domain.model.Batch
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /**
- * History screen for viewing all products in the catalog.
+ * History screen for viewing all product batches.
  *
  * Features:
- * - Displays all products from ProductCatalogEntity
- * - Shows product name, pack size, expiry status
+ * - Displays all batches from active_stocks table
+ * - Shows product name, pack size, expiry date, quantity, and status
+ * - Status is calculated dynamically based on TODAY's date (matching Dashboard)
  * - Loading state with spinner
  * - Error state with message
- * - Empty state when no products
+ * - Empty state when no batches
  * - Pull-to-refresh support (manual refresh)
  *
  * Performance:
@@ -91,15 +95,15 @@ fun HistoryScreen(
                 }
 
                 is HistoryUiState.Success -> {
-                    val products = (uiState as HistoryUiState.Success).products
+                    val batches = (uiState as HistoryUiState.Success).batches
 
-                    if (products.isEmpty()) {
+                    if (batches.isEmpty()) {
                         // Show empty state
                         EmptyState()
                     } else {
-                        // Show product list
-                        ProductList(
-                            products = products,
+                        // Show batch list
+                        BatchList(
+                            batches = batches,
                             onRefresh = { viewModel.refresh() }
                         )
                     }
@@ -115,12 +119,12 @@ fun HistoryScreen(
 }
 
 /**
- * Product list with LazyColumn.
+ * Batch list with LazyColumn.
  * Optimized for thumb zone on Samsung XCover7.
  */
 @Composable
-private fun ProductList(
-    products: List<ProductWithStatus>,
+private fun BatchList(
+    batches: List<Batch>,
     onRefresh: () -> Unit
 ) {
     LazyColumn(
@@ -128,10 +132,10 @@ private fun ProductList(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(
-            items = products,
-            key = { it.product.ean }
-        ) { productWithStatus ->
-            ProductCard(productWithStatus = productWithStatus)
+            items = batches,
+            key = { it.id }
+        ) { batch ->
+            BatchCard(batch = batch)
         }
 
         // Add bottom padding for scrolling
@@ -142,16 +146,15 @@ private fun ProductList(
 }
 
 /**
- * Individual product card component.
+ * Individual batch card component.
  * Thumb zone optimized (minimum 56dp height).
- * Uses pre-calculated status from ViewModel to prevent recomposition loops.
+ * Uses pre-calculated status from Batch model to prevent recomposition loops.
  */
 @Composable
-private fun ProductCard(
-    productWithStatus: ProductWithStatus
+private fun BatchCard(
+    batch: Batch
 ) {
-    val product = productWithStatus.product
-    val status = productWithStatus.status
+    val status = batch.status
 
     val (statusColor, statusText) = when (status) {
         com.decathlon.smartnutristock.domain.model.SemaphoreStatus.GREEN -> {
@@ -169,55 +172,84 @@ private fun ProductCard(
         }
     }
 
+    // Format expiry date for display
+    val expiryDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+        .withZone(java.time.ZoneId.of("UTC"))
+    val expiryDateText = expiryDateFormatter.format(batch.expiryDate)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
         ) {
-            Column(
-                modifier = Modifier.weight(1f)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = product.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = batch.name ?: "Producto desconocido",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "EAN: ${batch.ean}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+
+                // Status indicator
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(statusColor, shape = CircleShape)
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+
+                Spacer(modifier = Modifier.width(8.dp))
+
                 Text(
-                    text = "EAN: ${product.ean}",
+                    text = statusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = statusColor,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                batch.packSize?.let {
+                    Text(
+                        text = "Pack: ${it}g",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+                Text(
+                    text = "Cantidad: ${batch.quantity}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
                 Text(
-                    text = "Pack: ${product.packSize}g",
+                    text = "Vence: $expiryDateText",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
-
-            // Status indicator
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(statusColor, shape = CircleShape)
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Text(
-                text = statusText,
-                style = MaterialTheme.typography.bodySmall,
-                color = statusColor,
-                fontWeight = FontWeight.Medium
-            )
         }
     }
 }
@@ -240,7 +272,7 @@ private fun EmptyState() {
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "No hay productos",
+            text = "No hay lotes",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
@@ -248,7 +280,7 @@ private fun EmptyState() {
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Escanea un producto para comenzar",
+            text = "Escanea un producto para agregar un lote",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )

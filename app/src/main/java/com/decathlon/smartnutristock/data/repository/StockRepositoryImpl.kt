@@ -110,6 +110,16 @@ class StockRepositoryImpl @Inject constructor(
         return stockDao.deleteByEan(ean)
     }
 
+    override suspend fun findAllWithProductInfo(): kotlinx.coroutines.flow.Flow<Batch> = kotlinx.coroutines.flow.flow {
+        val batchesWithInfo = stockDao.findAllWithProductInfo()
+        val clock = Clock.systemUTC()
+
+        batchesWithInfo.forEach { batchInfo ->
+            val status = calculateStatusUseCase(batchInfo.expiryDate, clock)
+            emit(batchInfo.toDomainModel(status))
+        }
+    }
+
     /**
      * Extension function to convert ActiveStockEntity to Batch domain model.
      */
