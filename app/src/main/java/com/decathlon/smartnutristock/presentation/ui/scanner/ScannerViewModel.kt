@@ -201,8 +201,10 @@ class ScannerViewModel @Inject constructor(
                         // Product registered successfully
                         _isBottomSheetVisible.value = false
                         _foundProduct.value = result.product
+                        _currentProductInfo.value = result.product
                         _isLoading.value = false
-                        _currentEan.value = null
+                        // _currentEan.value = null  // Removed to enable chain flow to batch input
+                        _batchInputState.value = BatchInputStep.SelectExpiryDate
                         _successMessage.value = "Producto registrado exitosamente"
                     }
                     is Failure -> {
