@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -121,7 +122,9 @@ fun ProductRegistrationBottomSheet(
                 label = { Text("Código EAN") },
                 enabled = false,
                 readOnly = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("ean_field"),
                 singleLine = true
             )
 
@@ -137,7 +140,8 @@ fun ProductRegistrationBottomSheet(
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .focusRequester(focusRequester),
+                    .focusRequester(focusRequester)
+                    .testTag("name_field"),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Next
@@ -158,7 +162,9 @@ fun ProductRegistrationBottomSheet(
                 isError = packSizeError != null,
                 supportingText = packSizeError?.let { { Text(it) } },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("pack_size_field"),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Number,
                     imeAction = ImeAction.Done
@@ -198,7 +204,8 @@ fun ProductRegistrationBottomSheet(
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(56.dp), // Thumb zone!
+                        .height(56.dp) // Thumb zone!
+                        .testTag("save_button"),
                     enabled = isFormValid
                 ) {
                     Text(

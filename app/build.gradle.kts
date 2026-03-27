@@ -56,6 +56,12 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "META-INF/LICENSE.md"
+            excludes += "META-INF/LICENSE"
+            excludes += "META-INF/NOTICE.md"
+            excludes += "META-INF/NOTICE"
+            excludes += "META-INF/LICENSE-notice.md"
+            excludes += "META-INF/ASL2.0"
         }
     }
 
@@ -126,6 +132,9 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation("io.mockk:mockk-android:1.13.9")
+    androidTestImplementation("androidx.room:room-testing:2.6.1")
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    androidTestImplementation("com.google.truth:truth:1.1.5")
     // androidTestImplementation("androidx.hilt:hilt-android-testing:1.1.0") // TODO: Add back in EPIC-07
     // kaptAndroidTest("androidx.hilt:hilt-android-compiler:1.1.0") // TODO: Add back in EPIC-07
     debugImplementation("androidx.compose.ui:ui-tooling")

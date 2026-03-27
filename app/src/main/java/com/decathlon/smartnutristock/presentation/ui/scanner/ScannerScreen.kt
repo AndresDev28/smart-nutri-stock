@@ -52,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -314,7 +315,10 @@ fun ScannerScreen(
                 }
             }
         ) {
-            DatePicker(state = datePickerState)
+            DatePicker(
+                state = datePickerState,
+                modifier = Modifier.testTag("date_picker")
+            )
         }
     }
 
@@ -322,6 +326,7 @@ fun ScannerScreen(
     if (batchInputState is BatchInputStep.EnterQuantity && productInfoVal != null) {
         AlertDialog(
             onDismissRequest = { viewModel.onCancelBatchInput() },
+            modifier = Modifier.testTag("quantity_dialog"),
             title = {
                 Text(text = "Ingresar Cantidad")
             },
@@ -350,7 +355,9 @@ fun ScannerScreen(
                         isError = quantityError != null,
                         supportingText = quantityError?.let { { Text(it) } },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("quantity_input_field")
                     )
                 }
             },
