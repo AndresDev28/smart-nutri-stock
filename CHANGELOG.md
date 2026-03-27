@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.0.1...v2.1.0) (2026-03-27)
+
+
+### Features
+
+* **ci:** implement APK build and artifact upload for EPIC-08 ([5449991](https://github.com/AndresDev28/smart-nutri-stock/commit/54499919b0f2c7ecb0849d3352280bff34d52863))
+
 ## [2.0.1](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.0.0...v2.0.1) (2026-03-26)
 
 
