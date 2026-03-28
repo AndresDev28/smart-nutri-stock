@@ -82,24 +82,21 @@ class StockRepositoryImpl @Inject constructor(
 
     override suspend fun getSemaphoreCounters(): kotlinx.coroutines.flow.Flow<SemaphoreCounters> = kotlinx.coroutines.flow.flow {
         val entities = stockDao.findAll()
-        var red = 0
         var yellow = 0
         var green = 0
         var expired = 0
 
         val clock = Clock.systemUTC()
 
-        @Suppress("DEPRECATION")
         entities.forEach { entity ->
             when (calculateStatusUseCase(entity.expiryDate, clock)) {
                 SemaphoreStatus.EXPIRED -> expired++
-                SemaphoreStatus.RED -> red++ // Kept for backward compatibility, but never used
                 SemaphoreStatus.YELLOW -> yellow++
                 SemaphoreStatus.GREEN -> green++
             }
         }
 
-        emit(SemaphoreCounters(red = red, yellow = yellow, green = green, expired = expired))
+        emit(SemaphoreCounters(yellow = yellow, green = green, expired = expired))
     }
 
     override suspend fun deleteByEanAndExpiryDate(ean: String, expiryDate: Instant): Int {

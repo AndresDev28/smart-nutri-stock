@@ -186,7 +186,7 @@ private fun DashboardContent(
             // Red Counter
             SemaphoreCounter(
                 label = "Expirados",
-                count = counters.red,
+                count = counters.expired,
                 color = Color(0xFFFF4444), // Red from CalculateStatusUseCase
                 emoji = "🔴"
             )

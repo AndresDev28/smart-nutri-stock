@@ -165,37 +165,37 @@ class UpsertStockUseCaseTest {
             ean = ean,
             quantity = quantity,
             expiryDate = expiryDate,
-            status = SemaphoreStatus.RED
+            status = SemaphoreStatus.EXPIRED
         )
 
-        coEvery { mockRepository.upsert(batch) } returns UpsertBatchResult.Success(SemaphoreStatus.RED)
+        coEvery { mockRepository.upsert(batch) } returns UpsertBatchResult.Success(SemaphoreStatus.EXPIRED)
 
         val result = useCase.upsert(batch)
 
         assert(result is UpsertBatchResult.Success)
     }
 
-    // TEST 8: Batch with RED semaphore status
+    // TEST 8: Batch with EXPIRED semaphore status
     @Test
-    fun `upsertStock with RED status should return Success with RED`() = runTest {
+    fun `upsertStock with EXPIRED status should return Success with EXPIRED`() = runTest {
         val ean = "8435489901234"
-        val expiryDate = Instant.now().plusSeconds(10 * 24 * 60 * 60) // 10 days from now
+        val expiryDate = Instant.now().minusSeconds(10 * 24 * 60 * 60) // 10 days ago (expired)
         val quantity = 10
         val batch = Batch(
             id = "batch-8",
             ean = ean,
             quantity = quantity,
             expiryDate = expiryDate,
-            status = SemaphoreStatus.RED
+            status = SemaphoreStatus.EXPIRED
         )
 
-        coEvery { mockRepository.upsert(batch) } returns UpsertBatchResult.Success(SemaphoreStatus.RED)
+        coEvery { mockRepository.upsert(batch) } returns UpsertBatchResult.Success(SemaphoreStatus.EXPIRED)
 
         val result = useCase.upsert(batch)
 
         assert(result is UpsertBatchResult.Success)
         val status = (result as UpsertBatchResult.Success).status
-        assert(status == SemaphoreStatus.RED)
+        assert(status == SemaphoreStatus.EXPIRED)
     }
 
     // TEST 9: Batch with YELLOW semaphore status

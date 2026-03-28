@@ -25,7 +25,6 @@ class GetSemaphoreCountersUseCaseTest {
     @Test
     fun `getSemaphoreCounters with mixed statuses should return correct counts`() = runTest {
         val counters = SemaphoreCounters(
-            red = 2,
             yellow = 3,
             green = 5,
             expired = 1
@@ -38,40 +37,15 @@ class GetSemaphoreCountersUseCaseTest {
         result.collect { received ->
             assertEquals(5, received.green)
             assertEquals(3, received.yellow)
-            assertEquals(2, received.red)
             assertEquals(1, received.expired)
-            assertEquals(11, received.total)
+            assertEquals(9, received.total)
         }
     }
 
-    // TEST 2: Only red products
-    @Test
-    fun `getSemaphoreCounters with only red products should return correct counts`() = runTest {
-        val counters = SemaphoreCounters(
-            red = 4,
-            yellow = 0,
-            green = 0,
-            expired = 0
-        )
-
-        coEvery { mockStockRepository.getSemaphoreCounters() } returns flowOf(counters)
-
-        val result = useCase()
-
-        result.collect { received ->
-            assertEquals(0, received.green)
-            assertEquals(0, received.yellow)
-            assertEquals(4, received.red)
-            assertEquals(0, received.expired)
-            assertEquals(4, received.total)
-        }
-    }
-
-    // TEST 3: Only yellow products
+    // TEST 2: Only yellow products
     @Test
     fun `getSemaphoreCounters with only yellow products should return correct counts`() = runTest {
         val counters = SemaphoreCounters(
-            red = 0,
             yellow = 3,
             green = 0,
             expired = 0
@@ -84,17 +58,15 @@ class GetSemaphoreCountersUseCaseTest {
         result.collect { received ->
             assertEquals(0, received.green)
             assertEquals(3, received.yellow)
-            assertEquals(0, received.red)
             assertEquals(0, received.expired)
             assertEquals(3, received.total)
         }
     }
 
-    // TEST 4: Only green products
+    // TEST 3: Only green products
     @Test
     fun `getSemaphoreCounters with only green products should return correct counts`() = runTest {
         val counters = SemaphoreCounters(
-            red = 0,
             yellow = 0,
             green = 5,
             expired = 0
@@ -107,17 +79,15 @@ class GetSemaphoreCountersUseCaseTest {
         result.collect { received ->
             assertEquals(5, received.green)
             assertEquals(0, received.yellow)
-            assertEquals(0, received.red)
             assertEquals(0, received.expired)
             assertEquals(5, received.total)
         }
     }
 
-    // TEST 5: Empty catalog
+    // TEST 4: Empty catalog
     @Test
     fun `getSemaphoreCounters with empty catalog should return zero counts`() = runTest {
         val counters = SemaphoreCounters(
-            red = 0,
             yellow = 0,
             green = 0,
             expired = 0
@@ -130,17 +100,15 @@ class GetSemaphoreCountersUseCaseTest {
         result.collect { received ->
             assertEquals(0, received.green)
             assertEquals(0, received.yellow)
-            assertEquals(0, received.red)
             assertEquals(0, received.expired)
             assertEquals(0, received.total)
         }
     }
 
-    // TEST 6: Expired products
+    // TEST 5: Expired products
     @Test
     fun `getSemaphoreCounters with expired products should return correct counts`() = runTest {
         val counters = SemaphoreCounters(
-            red = 0,
             yellow = 0,
             green = 0,
             expired = 3
@@ -153,17 +121,15 @@ class GetSemaphoreCountersUseCaseTest {
         result.collect { received ->
             assertEquals(0, received.green)
             assertEquals(0, received.yellow)
-            assertEquals(0, received.red)
             assertEquals(3, received.expired)
             assertEquals(3, received.total)
         }
     }
 
-    // TEST 7: All categories with values
+    // TEST 6: All categories with values
     @Test
     fun `getSemaphoreCounters with all categories should return correct total`() = runTest {
         val counters = SemaphoreCounters(
-            red = 5,
             yellow = 10,
             green = 20,
             expired = 2
@@ -176,17 +142,15 @@ class GetSemaphoreCountersUseCaseTest {
         result.collect { received ->
             assertEquals(20, received.green)
             assertEquals(10, received.yellow)
-            assertEquals(5, received.red)
             assertEquals(2, received.expired)
-            assertEquals(37, received.total)
+            assertEquals(32, received.total)
         }
     }
 
-    // TEST 8: Verify repository is called
+    // TEST 7: Verify repository is called
     @Test
     fun `getSemaphoreCounters should call stock repository`() = runTest {
         val counters = SemaphoreCounters(
-            red = 1,
             yellow = 1,
             green = 1,
             expired = 1
