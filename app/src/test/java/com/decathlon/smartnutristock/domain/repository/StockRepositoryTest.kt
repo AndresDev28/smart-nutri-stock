@@ -151,7 +151,7 @@ private class DummyStockRepository : StockRepository {
     }
 
     override suspend fun getSemaphoreCounters(): Flow<SemaphoreCounters> {
-        return kotlinx.coroutines.flow.flowOf(SemaphoreCounters(0, 0, 0, 0))
+        return kotlinx.coroutines.flow.flowOf(SemaphoreCounters(0, 0, 0))
     }
 
     override suspend fun deleteByEanAndExpiryDate(ean: String, expiryDate: java.time.Instant): Int {

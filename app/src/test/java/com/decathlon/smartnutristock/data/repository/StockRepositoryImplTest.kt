@@ -278,7 +278,7 @@ class StockRepositoryImplTest {
 
         coEvery { stockDao.findAll() } returns entities
         // Mock different statuses for different dates
-        every { calculateStatusUseCase(Instant.parse("2026-07-01T00:00:00Z")) } returns SemaphoreStatus.RED
+        every { calculateStatusUseCase(Instant.parse("2026-07-01T00:00:00Z")) } returns SemaphoreStatus.EXPIRED
         every { calculateStatusUseCase(Instant.parse("2026-08-01T00:00:00Z")) } returns SemaphoreStatus.YELLOW
         every { calculateStatusUseCase(Instant.parse("2026-09-01T00:00:00Z")) } returns SemaphoreStatus.GREEN
         every { calculateStatusUseCase(Instant.parse("2024-01-01T00:00:00Z")) } returns SemaphoreStatus.EXPIRED
@@ -290,10 +290,9 @@ class StockRepositoryImplTest {
         // Then
         assertEquals(1, counters.size)
         val result = counters[0]
-        assertEquals(1, result.red)
         assertEquals(1, result.yellow)
         assertEquals(1, result.green)
-        assertEquals(1, result.expired)
+        assertEquals(2, result.expired)
     }
 
     /**
