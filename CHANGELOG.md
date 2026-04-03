@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.1.0...v2.1.1) (2026-04-03)
+
+
+### Bug Fixes
+
+* **dashboard:** correct expired counter displaying wrong field ([19bb096](https://github.com/AndresDev28/smart-nutri-stock/commit/19bb09680bc6b1a687c6929a43583ae5e792f1b7))
+
 ## [2.1.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.0.1...v2.1.0) (2026-03-27)
 
 
