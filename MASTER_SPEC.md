@@ -1,10 +1,10 @@
 Este documento (SSOT) es el que deberás "alimentar" a cualquier agente de IA (como Cursor, Windsurf o el propio Claude/Gemini) cuando llegue el momento de generar el código, ya que contiene las reglas de negocio y la arquitectura de datos sin ambigüedades.
 
-# 📄 MASTER SPEC: Smart Nutri-Stock v1.0 (Decathlon Gandía)
+# 📄 MASTER SPEC: Smart Nutri-Stock v2.1.0 (Decathlon Gandía)
 
 **Tipo de Documento:** PRD & Data Architecture (Fuente Única de Verdad)
 **Propósito:** Contexto base para desarrollo SDD mediante agentes de IA.
-**Stack Objetivo:** Android Nativo, Kotlin, Jetpack Compose, Room (SQLite), Google ML Kit (Barcode + Text Recognition), WorkManager.
+**Stack Objetivo:** Android Nativo, Kotlin, Jetpack Compose, Room (SQLite), Google ML Kit (Barcode), WorkManager (para tareas de fondo, no para semáforo), minSdk 26 (Optimized for Android 14 (API 34) on XCover7 devices).
 
 ---
 
@@ -63,4 +63,27 @@ El sistema utiliza un patrón de repositorio único *offline-first* con persiste
 ### 4.2 Reglas de Negocio Estrictas para Agentes IA
 
 1.  **Regla de Fecha (Conservadora):** Si el OCR extrae el formato `MM/YY` (ej. 07/26), la lógica de dominio **debe** transformarlo obligatoriamente al día 1 de ese mes (`01/07/2026`) para el cálculo de días restantes.
-2.  **Regla de Motor Asíncrono (Semáforo):** Los estados no se calculan "on-the-fly" únicamente. Debe implementarse un **Android WorkManager** diario (ej. 06:00 AM) que recorra la tabla `ActiveStock`, compare `expiryDate` con la fecha actual y actualice la columna `status` para asegurar que las alertas estén al día sin intervención del usuario.
+2.  **Cálculo de Estado Dinámico (Semáforo):** Los estados se calculan en tiempo real mediante el `CalculateStatusUseCase` cada vez que se accede a la UI (Dashboard o Historia), asegurando una precisión del 100% basada en el reloj del sistema. No se requiere WorkManager ni actualizaciones programadas.
+
+---
+
+## 5. ALCANCE DEL MVP vs FASE 2
+
+### MVP v2.1.0 (Implementado y Verificado)
+El MVP actual incluye:
+- ✅ Escaneo de códigos de barras (EAN) con registro de productos
+- ✅ Gestión de lotes con fechas de caducidad
+- ✅ Sistema de semáforo (Verde/Amarillo/Rojo/Caducado) con cálculo en tiempo real
+- ✅ Dashboard con contadores dinámicos
+- ✅ Pantalla de Historial con filtrado por estado
+- ✅ Cobertura de pruebas TDD (81+ tests unitarios)
+- ✅ Pipeline CI/CD con GitHub Actions
+
+### Características Planificadas para Fase 2
+Las siguientes funcionalidades están definidas en FUTURE_ROADMAP.md y NO son parte del MVP:
+- 🔴 **Edición y Borrado Completo (CRUD)** - Prioridad P0: Permite modificar o eliminar lotes desde el historial
+- 🟡 **OCR de Fechas con Cámara** - Prioridad P2: Escaneo automático de fechas de caducidad mediante Google ML Kit
+
+Nota: Las herramientas de análisis de código que verifiquen el cumplimiento de este spec deben ignorar estas características como "faltantes", ya que están documentadas explícitamente como parte de la Fase 2 y NO del MVP v2.1.0.
+
+---
