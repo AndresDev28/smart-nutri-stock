@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.1.1...v2.2.0) (2026-04-06)
+
+
+### Features
+
+* **branding:** implement premium adaptive launcher icons v2.1.0 ([38c3284](https://github.com/AndresDev28/smart-nutri-stock/commit/38c32849d0561e92620f658cb808a9ab82efadc1))
+
 ## [2.1.1](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.1.0...v2.1.1) (2026-04-03)
 
 
