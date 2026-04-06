@@ -82,4 +82,38 @@ interface StockRepository {
      * @return Flow of all batches with product info
      */
     suspend fun findAllWithProductInfo(): Flow<Batch>
+
+    /**
+     * Update an existing batch.
+     *
+     * @param batch The batch to update
+     * @return Number of rows affected (1 if updated, 0 if not found)
+     */
+    suspend fun updateBatch(batch: Batch): Int
+
+    /**
+     * Soft delete a batch by setting deletedAt timestamp.
+     *
+     * @param id The batch ID
+     * @param timestamp The timestamp when the batch was deleted
+     * @return Number of rows affected (1 if deleted, 0 if not found)
+     */
+    suspend fun softDeleteBatch(id: String, timestamp: java.time.Instant): Int
+
+    /**
+     * Restore a soft-deleted batch by setting deletedAt to NULL.
+     *
+     * @param id The batch ID
+     * @return Number of rows affected (1 if restored, 0 if not found)
+     */
+    suspend fun restoreBatch(id: String): Int
+
+    /**
+     * Update product name in the product catalog.
+     *
+     * @param ean The EAN code of the product
+     * @param name The new product name
+     * @return Number of rows affected (1 if updated, 0 if not found)
+     */
+    suspend fun updateProductName(ean: String, name: String): Int
 }

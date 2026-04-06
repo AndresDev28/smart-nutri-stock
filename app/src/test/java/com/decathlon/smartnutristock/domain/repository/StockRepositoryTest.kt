@@ -161,4 +161,20 @@ private class DummyStockRepository : StockRepository {
     override suspend fun deleteByEan(ean: String): Int {
         return 0
     }
+
+    override suspend fun updateBatch(batch: Batch): Int {
+        return 0
+    }
+
+    override suspend fun softDeleteBatch(id: String, timestamp: java.time.Instant): Int {
+        return 0
+    }
+
+    override suspend fun restoreBatch(id: String): Int {
+        return 0
+    }
+
+    override suspend fun updateProductName(ean: String, name: String): Int {
+        return 0
+    }
 }

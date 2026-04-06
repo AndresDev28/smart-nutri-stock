@@ -25,7 +25,8 @@ import java.time.Instant
         Index(
             value = ["ean", "expiryDate"],
             unique = true
-        )
+        ),
+        Index(value = ["deletedAt"])
     ]
 )
 data class ActiveStockEntity(
@@ -36,5 +37,6 @@ data class ActiveStockEntity(
     val quantity: Int,
     val expiryDate: Instant,
     val createdAt: Instant,
-    val updatedAt: Instant
+    val updatedAt: Instant,
+    val deletedAt: Instant? = null
 )

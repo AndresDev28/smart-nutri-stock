@@ -271,6 +271,8 @@ fun ScannerScreen(
             windowInsets = WindowInsets(0.dp)
         ) {
             ProductRegistrationBottomSheet(
+                mode = BottomSheetMode.CREATE,
+                existingBatch = null,
                 ean = currentEanVal,
                 onDismiss = { viewModel.dismissBottomSheet() },
                 onRegister = { productName, packSize ->

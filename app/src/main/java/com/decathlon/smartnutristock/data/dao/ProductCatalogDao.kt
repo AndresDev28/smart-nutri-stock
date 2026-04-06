@@ -24,4 +24,8 @@ interface ProductCatalogDao {
     // Delete product by EAN
     @Query("DELETE FROM product_catalog WHERE ean = :ean")
     suspend fun deleteByEan(ean: String): Int
+
+    // Update product name by EAN
+    @Query("UPDATE product_catalog SET name = :name WHERE ean = :ean")
+    suspend fun updateProductName(ean: String, name: String): Int
 }

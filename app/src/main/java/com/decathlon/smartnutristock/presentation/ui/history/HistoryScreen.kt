@@ -15,18 +15,35 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,6 +51,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.decathlon.smartnutristock.domain.model.Batch
+import com.decathlon.smartnutristock.presentation.ui.scanner.BottomSheetMode
+import com.decathlon.smartnutristock.presentation.ui.scanner.ProductRegistrationBottomSheet
+import kotlinx.coroutines.launch
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -48,6 +68,8 @@ import java.time.format.DateTimeFormatter
  * - Error state with message
  * - Empty state when no batches
  * - Pull-to-refresh support (manual refresh)
+ * - Edit batch via three-dot menu on each card
+ * - Soft delete with undo functionality via Snackbar
  *
  * Performance:
  * - LazyColumn for performance
@@ -60,6 +82,48 @@ fun HistoryScreen(
 ) {
     // Collect UI state from ViewModel
     val uiState by viewModel.uiState.collectAsState()
+
+    // Collect undo state from ViewModel
+    val undoState by viewModel.undoState.collectAsState()
+
+    // Collect edit bottom sheet state from ViewModel
+    val editBottomSheetState by viewModel.editBottomSheetState.collectAsState()
+
+    // Snackbar host state for undo functionality
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Show undo snackbar when undo state is PendingDelete
+    LaunchedEffect(undoState) {
+        when (val state = undoState) {
+            is UndoState.PendingDelete -> {
+                val result = snackbarHostState.showSnackbar(
+                    message = "Lote eliminado. ¿Deshacer? (${state.secondsRemaining}s)",
+                    actionLabel = "Deshacer",
+                    duration = androidx.compose.material3.SnackbarDuration.Indefinite
+                )
+                if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                    viewModel.undoDelete()
+                }
+            }
+            UndoState.Idle -> {
+                // Snackbar is dismissed automatically
+            }
+        }
+    }
+
+    // Edit bottom sheet state
+    val editBottomSheetStateInternal = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
+    // Auto-show/hide edit bottom sheet based on state
+    LaunchedEffect(editBottomSheetState) {
+        if (editBottomSheetState is EditBottomSheetState.Open) {
+            editBottomSheetStateInternal.show()
+        } else {
+            editBottomSheetStateInternal.hide()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -75,6 +139,9 @@ fun HistoryScreen(
                     containerColor = Color.Transparent
                 )
             )
+        },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
         }
     ) { padding ->
         Box(
@@ -104,7 +171,8 @@ fun HistoryScreen(
                         // Show batch list
                         BatchList(
                             batches = batches,
-                            onRefresh = { viewModel.refresh() }
+                            onEditClick = { batch -> viewModel.openEditBottomSheet(batch) },
+                            onDeleteClick = { batch -> viewModel.softDeleteBatch(batch) }
                         )
                     }
                 }
@@ -113,6 +181,31 @@ fun HistoryScreen(
                     // Show error message
                     ErrorScreen(message = (uiState as HistoryUiState.Error).message)
                 }
+            }
+        }
+
+        // Edit BottomSheet
+        if (editBottomSheetState is EditBottomSheetState.Open) {
+            androidx.compose.material3.ModalBottomSheet(
+                onDismissRequest = { viewModel.closeEditBottomSheet() },
+                sheetState = editBottomSheetStateInternal
+            ) {
+                val editBatch = (editBottomSheetState as EditBottomSheetState.Open).batch
+                ProductRegistrationBottomSheet(
+                    mode = BottomSheetMode.EDIT,
+                    existingBatch = editBatch,
+                    ean = editBatch.ean,
+                    onDismiss = { viewModel.closeEditBottomSheet() },
+                    onSave = { _, quantity, expiryDate, _, _, productName ->
+                        viewModel.saveBatchUpdate(
+                            barcode = editBatch.ean,
+                            quantity = quantity,
+                            expiryDate = expiryDate,
+                            batchId = editBatch.id,
+                            productName = productName
+                        )
+                    }
+                )
             }
         }
     }
@@ -125,7 +218,8 @@ fun HistoryScreen(
 @Composable
 private fun BatchList(
     batches: List<Batch>,
-    onRefresh: () -> Unit
+    onEditClick: (Batch) -> Unit,
+    onDeleteClick: (Batch) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -135,7 +229,11 @@ private fun BatchList(
             items = batches,
             key = { it.id }
         ) { batch ->
-            BatchCard(batch = batch)
+            BatchCard(
+                batch = batch,
+                onEditClick = onEditClick,
+                onDeleteClick = onDeleteClick
+            )
         }
 
         // Add bottom padding for scrolling
@@ -149,10 +247,13 @@ private fun BatchList(
  * Individual batch card component.
  * Thumb zone optimized (minimum 56dp height).
  * Uses pre-calculated status from Batch model to prevent recomposition loops.
+ * Includes three-dot menu for edit and delete actions.
  */
 @Composable
 private fun BatchCard(
-    batch: Batch
+    batch: Batch,
+    onEditClick: (Batch) -> Unit,
+    onDeleteClick: (Batch) -> Unit
 ) {
     val status = batch.status
 
@@ -172,6 +273,9 @@ private fun BatchCard(
     val expiryDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
         .withZone(java.time.ZoneId.of("UTC"))
     val expiryDateText = expiryDateFormatter.format(batch.expiryDate)
+
+    // Dropdown menu state
+    var expanded by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
@@ -220,6 +324,67 @@ private fun BatchCard(
                     color = statusColor,
                     fontWeight = FontWeight.Medium
                 )
+
+                // Three-dot menu (48dp tap target for XCover7)
+                Box(modifier = Modifier.size(48.dp)) {
+                    IconButton(
+                        onClick = { expanded = true },
+                        modifier = Modifier
+                            .fillMaxSize()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Más opciones",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    // Dropdown menu
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        // Edit option
+                        DropdownMenuItem(
+                            text = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = null
+                                    )
+                                    Text("Editar")
+                                }
+                            },
+                            onClick = {
+                                onEditClick(batch)
+                                expanded = false
+                            }
+                        )
+
+                        // Delete option
+                        DropdownMenuItem(
+                            text = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = null
+                                    )
+                                    Text("Eliminar")
+                                }
+                            },
+                            onClick = {
+                                onDeleteClick(batch)
+                                expanded = false
+                            }
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))

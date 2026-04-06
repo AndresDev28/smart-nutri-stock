@@ -78,6 +78,22 @@ class SemaphoreIntegrationTest {
         override suspend fun deleteByEan(ean: String): Int {
             TODO("Not needed for this integration test")
         }
+
+        override suspend fun updateBatch(batch: com.decathlon.smartnutristock.domain.model.Batch): Int {
+            TODO("Not needed for this integration test")
+        }
+
+        override suspend fun softDeleteBatch(id: String, timestamp: java.time.Instant): Int {
+            TODO("Not needed for this integration test")
+        }
+
+        override suspend fun restoreBatch(id: String): Int {
+            TODO("Not needed for this integration test")
+        }
+
+        override suspend fun updateProductName(ean: String, name: String): Int {
+            TODO("Not needed for this integration test")
+        }
     }
 
     private val getSemaphoreCountersUseCase = GetSemaphoreCountersUseCase(repository)

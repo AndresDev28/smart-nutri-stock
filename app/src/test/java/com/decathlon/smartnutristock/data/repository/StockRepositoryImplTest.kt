@@ -1,6 +1,7 @@
 package com.decathlon.smartnutristock.data.repository
 
 import com.decathlon.smartnutristock.data.dao.StockDao
+import com.decathlon.smartnutristock.data.dao.ProductCatalogDao
 import com.decathlon.smartnutristock.data.entity.ActiveStockEntity
 import com.decathlon.smartnutristock.domain.model.Batch
 import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
@@ -31,8 +32,9 @@ import java.time.Instant
 class StockRepositoryImplTest {
 
     private val stockDao = mockk<StockDao>()
+    private val productCatalogDao = mockk<ProductCatalogDao>()
     private val calculateStatusUseCase = mockk<CalculateStatusUseCase>()
-    private val repository = StockRepositoryImpl(stockDao, calculateStatusUseCase)
+    private val repository = StockRepositoryImpl(stockDao, productCatalogDao, calculateStatusUseCase)
 
     private val testClock = Clock.fixed(Instant.parse("2024-01-01T00:00:00Z"), java.time.ZoneOffset.UTC)
     private val testNow = Instant.now(testClock)
@@ -52,7 +54,7 @@ class StockRepositoryImplTest {
         )
 
         coEvery { stockDao.findByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns null
-        every { calculateStatusUseCase(batch.expiryDate) } returns SemaphoreStatus.GREEN
+        every { calculateStatusUseCase(batch.expiryDate, any()) } returns SemaphoreStatus.GREEN
         coEvery { stockDao.insert(any()) } returns 1L
 
         // When
@@ -89,7 +91,7 @@ class StockRepositoryImplTest {
         )
 
         coEvery { stockDao.findByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns existingEntity
-        every { calculateStatusUseCase(batch.expiryDate) } returns SemaphoreStatus.GREEN
+        every { calculateStatusUseCase(batch.expiryDate, any()) } returns SemaphoreStatus.GREEN
         coEvery { stockDao.update(any()) } returns 1
 
         // When
@@ -113,7 +115,7 @@ class StockRepositoryImplTest {
             ean = "8435408475366",
             quantity = 0,
             expiryDate = Instant.parse("2026-07-01T00:00:00Z"),
-            status = SemaphoreStatus.GREEN
+            status = SemaphoreStatus.EXPIRED
         )
 
         val existingEntity = ActiveStockEntity(
@@ -126,7 +128,7 @@ class StockRepositoryImplTest {
         )
 
         coEvery { stockDao.findByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns existingEntity
-        every { calculateStatusUseCase(batch.expiryDate) } returns SemaphoreStatus.GREEN
+        every { calculateStatusUseCase(batch.expiryDate, any()) } returns SemaphoreStatus.GREEN
         coEvery { stockDao.deleteByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns 1
 
         // When
@@ -150,7 +152,7 @@ class StockRepositoryImplTest {
             ean = "8435408475366",
             quantity = -5,
             expiryDate = Instant.parse("2026-07-01T00:00:00Z"),
-            status = SemaphoreStatus.GREEN
+            status = SemaphoreStatus.EXPIRED
         )
 
         val existingEntity = ActiveStockEntity(
@@ -163,7 +165,7 @@ class StockRepositoryImplTest {
         )
 
         coEvery { stockDao.findByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns existingEntity
-        every { calculateStatusUseCase(batch.expiryDate) } returns SemaphoreStatus.GREEN
+        every { calculateStatusUseCase(batch.expiryDate, any()) } returns SemaphoreStatus.GREEN
         coEvery { stockDao.deleteByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns 1
 
         // When
@@ -345,7 +347,7 @@ class StockRepositoryImplTest {
         )
 
         coEvery { stockDao.findByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns null
-        every { calculateStatusUseCase(batch.expiryDate) } returns SemaphoreStatus.GREEN
+        every { calculateStatusUseCase(batch.expiryDate, any()) } returns SemaphoreStatus.GREEN
         coEvery { stockDao.insert(any()) } returns -1L // Insert failed
 
         // When
@@ -353,5 +355,117 @@ class StockRepositoryImplTest {
 
         // Then
         assertTrue(result is UpsertBatchResult.Error)
+    }
+
+    /**
+     * Test updateBatch updates existing batch.
+     */
+    @Test
+    fun `updateBatch updates existing batch and recalculates status`() = runTest {
+        // Given
+        val batch = Batch(
+            id = "batch-1",
+            ean = "8435408475366",
+            quantity = 20,
+            expiryDate = Instant.parse("2026-07-01T00:00:00Z"),
+            status = SemaphoreStatus.GREEN
+        )
+
+        val existingEntity = ActiveStockEntity(
+            id = "batch-1",
+            ean = batch.ean,
+            quantity = 10,
+            expiryDate = batch.expiryDate,
+            createdAt = testNow,
+            updatedAt = testNow
+        )
+
+        coEvery { stockDao.findByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns existingEntity
+        every { calculateStatusUseCase(batch.expiryDate, any()) } returns SemaphoreStatus.GREEN
+        coEvery { stockDao.update(any()) } returns 1
+
+        // When
+        val result = repository.updateBatch(batch)
+
+        // Then
+        assertEquals(1, result)
+        coVerify { stockDao.update(match { entity ->
+            entity.id == "batch-1" &&
+            entity.ean == "8435408475366" &&
+            entity.quantity == 20 &&
+            entity.expiryDate == Instant.parse("2026-07-01T00:00:00Z")
+        }) }
+    }
+
+    /**
+     * Test softDeleteBatch sets deletedAt timestamp.
+     */
+    @Test
+    fun `softDeleteBatch sets deletedAt timestamp via DAO`() = runTest {
+        // Given
+        val batchId = "batch-1"
+        val deleteTimestamp = testNow
+
+        coEvery { stockDao.softDelete(batchId, deleteTimestamp) } returns 1
+
+        // When
+        val result = repository.softDeleteBatch(batchId, deleteTimestamp)
+
+        // Then
+        assertEquals(1, result)
+        coVerify { stockDao.softDelete(batchId, deleteTimestamp) }
+    }
+
+    /**
+     * Test softDeleteBatch returns 0 when batch not found.
+     */
+    @Test
+    fun `softDeleteBatch returns 0 when batch not found`() = runTest {
+        // Given
+        val batchId = "non-existent"
+        val deleteTimestamp = testNow
+
+        coEvery { stockDao.softDelete(batchId, deleteTimestamp) } returns 0
+
+        // When
+        val result = repository.softDeleteBatch(batchId, deleteTimestamp)
+
+        // Then
+        assertEquals(0, result)
+    }
+
+    /**
+     * Test restoreBatch sets deletedAt to NULL.
+     */
+    @Test
+    fun `restoreBatch sets deletedAt to NULL via DAO`() = runTest {
+        // Given
+        val batchId = "batch-1"
+
+        coEvery { stockDao.restoreBatch(batchId) } returns 1
+
+        // When
+        val result = repository.restoreBatch(batchId)
+
+        // Then
+        assertEquals(1, result)
+        coVerify { stockDao.restoreBatch(batchId) }
+    }
+
+    /**
+     * Test restoreBatch returns 0 when batch not found.
+     */
+    @Test
+    fun `restoreBatch returns 0 when batch not found`() = runTest {
+        // Given
+        val batchId = "non-existent"
+
+        coEvery { stockDao.restoreBatch(batchId) } returns 0
+
+        // When
+        val result = repository.restoreBatch(batchId)
+
+        // Then
+        assertEquals(0, result)
     }
 }

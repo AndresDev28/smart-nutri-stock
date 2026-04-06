@@ -6,6 +6,7 @@ import com.decathlon.smartnutristock.data.dao.ProductCatalogDao
 import com.decathlon.smartnutristock.data.dao.StockDao
 import com.decathlon.smartnutristock.data.local.MIGRATION_1_2
 import com.decathlon.smartnutristock.data.local.MIGRATION_2_3
+import com.decathlon.smartnutristock.data.local.MIGRATION_3_4
 import com.decathlon.smartnutristock.data.local.SmartNutriStockDatabase
 import dagger.Module
 import dagger.Provides
@@ -28,6 +29,7 @@ object DatabaseModule {
      * Database is configured with migrations:
      * - MIGRATION_1_2: Add daysUntilExpiry column
      * - MIGRATION_2_3: Create active_stocks table with composite index
+     * - MIGRATION_3_4: Add deletedAt column for soft-delete support
      */
     @Provides
     @Singleton
@@ -39,7 +41,7 @@ object DatabaseModule {
             SmartNutriStockDatabase::class.java,
             SmartNutriStockDatabase.DATABASE_NAME
         )
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
     }
 
