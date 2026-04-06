@@ -13,7 +13,7 @@ import com.decathlon.smartnutristock.data.local.InstantConverters
 
 @Database(
     entities = [ProductCatalogEntity::class, ActiveStockEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(InstantConverters::class)
@@ -54,6 +54,20 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
             CREATE UNIQUE INDEX IF NOT EXISTS index_active_stocks_ean_expiryDate
             ON active_stocks(ean, expiryDate)
             """.trimIndent()
+        )
+    }
+}
+
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        // Add deletedAt column for soft-delete support (nullable)
+        database.execSQL(
+            "ALTER TABLE active_stocks ADD COLUMN deletedAt INTEGER"
+        )
+
+        // Create index on deletedAt for query performance
+        database.execSQL(
+            "CREATE INDEX IF NOT EXISTS index_active_stocks_deletedAt ON active_stocks(deletedAt)"
         )
     }
 }

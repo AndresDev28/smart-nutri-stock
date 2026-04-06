@@ -167,10 +167,9 @@ class DashboardScreenTest {
         val counters = SemaphoreCounters(
             green = 5,
             yellow = 2,
-            red = 0,
             expired = 0
         )
-        val expectedTotal = 5 + 2 + 0 + 0 // 7
+        val expectedTotal = 5 + 2 + 0 // 7
 
         // When - Test total products display
         composeTestRule.setContent {

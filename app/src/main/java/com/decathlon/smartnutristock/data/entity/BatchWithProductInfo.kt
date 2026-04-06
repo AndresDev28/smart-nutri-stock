@@ -40,7 +40,8 @@ data class BatchWithProductInfo(
             expiryDate = expiryDate,
             status = status,
             name = productName,
-            packSize = packSize
+            packSize = packSize,
+            deletedAt = null // Active batches (from findAllWithProductInfo) have deletedAt = NULL
         )
     }
 }

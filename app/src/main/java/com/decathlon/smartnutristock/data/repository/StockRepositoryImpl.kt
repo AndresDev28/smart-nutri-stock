@@ -1,6 +1,7 @@
 package com.decathlon.smartnutristock.data.repository
 
 import com.decathlon.smartnutristock.data.dao.StockDao
+import com.decathlon.smartnutristock.data.dao.ProductCatalogDao
 import com.decathlon.smartnutristock.data.entity.ActiveStockEntity
 import com.decathlon.smartnutristock.domain.model.Batch
 import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
@@ -25,6 +26,7 @@ import javax.inject.Inject
  */
 class StockRepositoryImpl @Inject constructor(
     private val stockDao: StockDao,
+    private val productCatalogDao: ProductCatalogDao,
     private val calculateStatusUseCase: CalculateStatusUseCase
 ) : StockRepository {
 
@@ -117,6 +119,43 @@ class StockRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun updateBatch(batch: Batch): Int {
+        return try {
+            val clock = Clock.systemUTC()
+            val status = calculateStatusUseCase(batch.expiryDate, clock)
+
+            val existing = stockDao.findByEanAndExpiryDate(batch.ean, batch.expiryDate)
+            if (existing == null) {
+                0 // Batch not found
+            } else {
+                val updatedEntity = ActiveStockEntity(
+                    id = existing.id,
+                    ean = batch.ean,
+                    quantity = batch.quantity,
+                    expiryDate = batch.expiryDate,
+                    createdAt = existing.createdAt,
+                    updatedAt = Instant.now(clock),
+                    deletedAt = existing.deletedAt
+                )
+                stockDao.update(updatedEntity)
+            }
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    override suspend fun softDeleteBatch(id: String, timestamp: Instant): Int {
+        return stockDao.softDelete(id, timestamp)
+    }
+
+    override suspend fun restoreBatch(id: String): Int {
+        return stockDao.restoreBatch(id)
+    }
+
+    override suspend fun updateProductName(ean: String, name: String): Int {
+        return productCatalogDao.updateProductName(ean, name)
+    }
+
     /**
      * Extension function to convert ActiveStockEntity to Batch domain model.
      */
@@ -127,7 +166,8 @@ class StockRepositoryImpl @Inject constructor(
             ean = this.ean,
             quantity = this.quantity,
             expiryDate = this.expiryDate,
-            status = calculateStatusUseCase(this.expiryDate, clock)
+            status = calculateStatusUseCase(this.expiryDate, clock),
+            deletedAt = this.deletedAt
         )
     }
 
@@ -142,7 +182,8 @@ class StockRepositoryImpl @Inject constructor(
             quantity = this.quantity,
             expiryDate = this.expiryDate,
             createdAt = now,
-            updatedAt = now
+            updatedAt = now,
+            deletedAt = this.deletedAt
         )
     }
 }

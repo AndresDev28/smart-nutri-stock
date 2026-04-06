@@ -43,7 +43,7 @@ interface StockDao {
      * @param expiryDate The expiry date
      * @return The batch if found, null otherwise
      */
-    @Query("SELECT * FROM active_stocks WHERE ean = :ean AND expiryDate = :expiryDate LIMIT 1")
+    @Query("SELECT * FROM active_stocks WHERE ean = :ean AND expiryDate = :expiryDate AND deletedAt IS NULL LIMIT 1")
     suspend fun findByEanAndExpiryDate(ean: String, expiryDate: Instant): ActiveStockEntity?
 
     /**
@@ -52,7 +52,7 @@ interface StockDao {
      * @param ean The EAN code
      * @return List of all batches with this EAN, ordered by expiry date
      */
-    @Query("SELECT * FROM active_stocks WHERE ean = :ean ORDER BY expiryDate ASC")
+    @Query("SELECT * FROM active_stocks WHERE ean = :ean AND deletedAt IS NULL ORDER BY expiryDate ASC")
     suspend fun findByEan(ean: String): List<ActiveStockEntity>
 
     /**
@@ -60,7 +60,7 @@ interface StockDao {
      *
      * @return List of all batches
      */
-    @Query("SELECT * FROM active_stocks ORDER BY expiryDate ASC")
+    @Query("SELECT * FROM active_stocks WHERE deletedAt IS NULL ORDER BY expiryDate ASC")
     suspend fun findAll(): List<ActiveStockEntity>
 
     /**
@@ -95,7 +95,7 @@ interface StockDao {
      *
      * @return The count of batches
      */
-    @Query("SELECT COUNT(*) FROM active_stocks")
+    @Query("SELECT COUNT(*) FROM active_stocks WHERE deletedAt IS NULL")
     suspend fun count(): Int
 
     /**
@@ -118,7 +118,27 @@ interface StockDao {
             p.packSize
         FROM active_stocks a
         LEFT JOIN product_catalog p ON a.ean = p.ean
+        WHERE a.deletedAt IS NULL
         ORDER BY a.expiryDate ASC
     """)
     suspend fun findAllWithProductInfo(): List<BatchWithProductInfo>
+
+    /**
+     * Soft delete a batch by setting deletedAt timestamp.
+     *
+     * @param id The batch ID
+     * @param timestamp The timestamp when the batch was deleted
+     * @return Number of rows affected (1 if deleted, 0 if not found)
+     */
+    @Query("UPDATE active_stocks SET deletedAt = :timestamp WHERE id = :id")
+    suspend fun softDelete(id: String, timestamp: Instant): Int
+
+    /**
+     * Restore a soft-deleted batch by setting deletedAt to NULL.
+     *
+     * @param id The batch ID
+     * @return Number of rows affected (1 if restored, 0 if not found)
+     */
+    @Query("UPDATE active_stocks SET deletedAt = NULL WHERE id = :id")
+    suspend fun restoreBatch(id: String): Int
 }
