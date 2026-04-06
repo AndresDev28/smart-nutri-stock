@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.2.0...v2.3.0) (2026-04-06)
+
+
+### Features
+
+* **batch:** add edit and soft-delete with undo support ([0bf45b4](https://github.com/AndresDev28/smart-nutri-stock/commit/0bf45b402c51fd0fa066433b38b20441cb242874))
+
 ## [2.2.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.1.1...v2.2.0) (2026-04-06)
 
 
