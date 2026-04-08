@@ -1,5 +1,7 @@
 package com.decathlon.smartnutristock.presentation.ui.history
 
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,13 +20,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,11 +48,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -55,8 +65,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.decathlon.smartnutristock.domain.model.Batch
+import com.decathlon.smartnutristock.domain.export.ExportFormat
+import com.decathlon.smartnutristock.presentation.ui.history.ExportState
+import com.decathlon.smartnutristock.presentation.ui.history.ExportFormatDialog
 import com.decathlon.smartnutristock.presentation.ui.scanner.BottomSheetMode
 import com.decathlon.smartnutristock.presentation.ui.scanner.ProductRegistrationBottomSheet
 import kotlinx.coroutines.launch
@@ -100,6 +114,53 @@ fun HistoryScreen(
 
     // Snackbar host state for undo functionality
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Export state and dialog
+    val exportState by viewModel.exportState.collectAsStateWithLifecycle()
+    var showExportDialog by remember { mutableStateOf(false) }
+
+    // Context for export sharing
+    val context = LocalContext.current
+
+    // Export state handling
+    when (val state = exportState) {
+        is ExportState.Loading -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .semantics { testTag = "exportLoading" },
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(48.dp))
+            }
+        }
+        is ExportState.Success -> {
+            LaunchedEffect(state) {
+                try {
+                    val authority = "${context.packageName}.fileprovider"
+                    val uri = FileProvider.getUriForFile(context, authority, state.file)
+                    val mimeType = if (state.file.name.endsWith(".csv")) "text/csv" else "application/pdf"
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = mimeType
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(Intent.createChooser(shareIntent, "Compartir reporte de inventario"))
+                } catch (e: Exception) {
+                    // Fallback: show error
+                }
+                viewModel.clearExportState()
+            }
+        }
+        is ExportState.Error -> {
+            LaunchedEffect(state) {
+                snackbarHostState.showSnackbar(state.message)
+                viewModel.clearExportState()
+            }
+        }
+        is ExportState.Idle -> { /* nothing */ }
+    }
 
     // Show undo snackbar when undo state is PendingDelete
     LaunchedEffect(undoState) {
@@ -146,7 +207,15 @@ fun HistoryScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
-                )
+                ),
+                actions = {
+                    IconButton(onClick = { showExportDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Exportar reporte"
+                        )
+                    }
+                }
             )
         },
         snackbarHost = {
@@ -226,6 +295,17 @@ fun HistoryScreen(
                     }
                 )
             }
+        }
+
+        // Export format dialog
+        if (showExportDialog) {
+            ExportFormatDialog(
+                onFormatSelected = { format ->
+                    showExportDialog = false
+                    viewModel.onExportFormatSelected(format)
+                },
+                onDismiss = { showExportDialog = false }
+            )
         }
     }
 }

@@ -2,7 +2,9 @@ package com.decathlon.smartnutristock.presentation.ui.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.decathlon.smartnutristock.domain.export.ExportFormat
 import com.decathlon.smartnutristock.domain.model.Batch
+import com.decathlon.smartnutristock.domain.usecase.ExportInventoryUseCase
 import com.decathlon.smartnutristock.domain.usecase.GetAllBatchesUseCase
 import com.decathlon.smartnutristock.domain.usecase.RestoreBatchUseCase
 import com.decathlon.smartnutristock.domain.usecase.SoftDeleteBatchUseCase
@@ -12,12 +14,15 @@ import com.decathlon.smartnutristock.domain.usecase.UpdateProductNameUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.io.File
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
@@ -34,6 +39,7 @@ import javax.inject.Inject
  * - Handles loading and error states
  * - Handles batch editing via ProductRegistrationBottomSheet
  * - Handles soft delete with undo functionality
+ * - Handles inventory export to CSV/PDF formats
  */
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
@@ -42,7 +48,8 @@ class HistoryViewModel @Inject constructor(
     private val restoreBatchUseCase: RestoreBatchUseCase,
     private val updateBatchUseCase: UpdateBatchUseCase,
     private val updateProductNameUseCase: UpdateProductNameUseCase,
-    private val updateBatchActionUseCase: UpdateBatchActionUseCase
+    private val updateBatchActionUseCase: UpdateBatchActionUseCase,
+    private val exportInventoryUseCase: ExportInventoryUseCase
 ) : ViewModel() {
 
     // UI State
@@ -62,6 +69,14 @@ class HistoryViewModel @Inject constructor(
     // Action Filter State
     private val _actionFilter = MutableStateFlow(ActionFilter.ALL)
     val actionFilter: StateFlow<ActionFilter> = _actionFilter.asStateFlow()
+
+    // Export State
+    private val _exportState = MutableStateFlow<ExportState>(ExportState.Idle)
+    val exportState: StateFlow<ExportState> = _exportState.asStateFlow()
+
+    // Export Event (one-shot)
+    private val _exportEvent = MutableSharedFlow<ExportEvent>()
+    val exportEvent = _exportEvent.asSharedFlow()
 
     // Undo timer job
     private var undoJob: Job? = null
@@ -311,6 +326,46 @@ class HistoryViewModel @Inject constructor(
         undoJob = null
     }
 
+    /**
+     * Export inventory to the specified format.
+     *
+     * This method orchestrates the export process:
+     * 1. Sets export state to Loading
+     * 2. Calls ExportInventoryUseCase with the selected format
+     * 3. Updates export state to Success or Error
+     * 4. Emits ShareFile event on success for the UI to trigger sharing
+     *
+     * @param format The export format (CSV or PDF)
+     */
+    fun onExportFormatSelected(format: ExportFormat) {
+        viewModelScope.launch {
+            _exportState.value = ExportState.Loading
+
+            exportInventoryUseCase(format)
+                .onSuccess { file ->
+                    val mimeType = when (format) {
+                        ExportFormat.CSV -> "text/csv"
+                        ExportFormat.PDF -> "application/pdf"
+                    }
+                    _exportState.value = ExportState.Success(file)
+                    _exportEvent.emit(ExportEvent.ShareFile(file, mimeType))
+                }
+                .onFailure { error ->
+                    _exportState.value = ExportState.Error(error.message ?: "Error al exportar")
+                }
+        }
+    }
+
+    /**
+     * Clear the export state back to Idle.
+     *
+     * This should be called after the share intent is launched or after
+     * displaying an error message to the user.
+     */
+    fun clearExportState() {
+        _exportState.value = ExportState.Idle
+    }
+
     override fun onCleared() {
         super.onCleared()
         // Cancel the undo job to prevent memory leaks
@@ -388,4 +443,52 @@ enum class ActionFilter {
      * Show only batches with action taken (DISCOUNTED or REMOVED).
      */
     WITH_ACTION
+}
+
+/**
+ * Export state for inventory export operation.
+ *
+ * This sealed class represents the different states of the export process,
+ * allowing the UI to show appropriate feedback (loading indicator, error message, etc.).
+ */
+sealed class ExportState {
+    /**
+     * No export operation in progress.
+     */
+    data object Idle : ExportState()
+
+    /**
+     * Export is currently in progress.
+     */
+    data object Loading : ExportState()
+
+    /**
+     * Export completed successfully with a generated file.
+     *
+     * @property file The exported file (CSV or PDF)
+     */
+    data class Success(val file: File) : ExportState()
+
+    /**
+     * Export failed with an error.
+     *
+     * @property message The error message to display to the user
+     */
+    data class Error(val message: String) : ExportState()
+}
+
+/**
+ * Export event for one-shot actions (e.g., triggering share intent).
+ *
+ * This sealed class represents events that should be handled once by the UI,
+ * such as launching the share sheet after a successful export.
+ */
+sealed class ExportEvent {
+    /**
+     * Event to trigger sharing of the exported file.
+     *
+     * @property file The exported file to share
+     * @property mimeType The MIME type of the file (text/csv or application/pdf)
+     */
+    data class ShareFile(val file: File, val mimeType: String) : ExportEvent()
 }

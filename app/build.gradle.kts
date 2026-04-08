@@ -14,8 +14,8 @@ android {
         applicationId = "com.decathlon.smartnutristock"
         minSdk = 26  // API 26 required for java.time.DateTimeFormatter
         targetSdk = 34
-        versionCode = 3
-        versionName = "2.3.0"
+        versionCode = 4
+        versionName = "2.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -79,6 +79,7 @@ dependencies {
     // Core Android
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
     implementation("androidx.activity:activity-compose:1.8.2")
 
     // Jetpack Compose
