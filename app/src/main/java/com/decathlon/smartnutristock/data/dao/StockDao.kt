@@ -115,7 +115,8 @@ interface StockDao {
             a.createdAt,
             a.updatedAt,
             p.name as productName,
-            p.packSize
+            p.packSize,
+            a.actionTaken
         FROM active_stocks a
         LEFT JOIN product_catalog p ON a.ean = p.ean
         WHERE a.deletedAt IS NULL
@@ -141,4 +142,14 @@ interface StockDao {
      */
     @Query("UPDATE active_stocks SET deletedAt = NULL WHERE id = :id")
     suspend fun restoreBatch(id: String): Int
+
+    /**
+     * Update the workflow action taken on a batch.
+     *
+     * @param batchId The batch ID
+     * @param action The workflow action (PENDING, DISCOUNTED, REMOVED)
+     * @return Number of rows affected (1 if updated, 0 if not found)
+     */
+    @Query("UPDATE active_stocks SET actionTaken = :action WHERE id = :batchId")
+    suspend fun updateAction(batchId: String, action: String): Int
 }

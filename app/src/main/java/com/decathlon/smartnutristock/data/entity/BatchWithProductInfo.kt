@@ -16,6 +16,7 @@ import java.time.Instant
  * @property updatedAt Timestamp when this batch was last modified
  * @property productName Product name (nullable - may not exist in catalog)
  * @property packSize Pack size in grams (nullable - may not exist in catalog)
+ * @property actionTaken Workflow action taken on this batch (PENDING, DISCOUNTED, REMOVED)
  */
 data class BatchWithProductInfo(
     val id: String,
@@ -25,7 +26,8 @@ data class BatchWithProductInfo(
     val createdAt: Instant,
     val updatedAt: Instant,
     val productName: String?,
-    val packSize: Int?
+    val packSize: Int?,
+    val actionTaken: String = "PENDING"
 ) {
     /**
      * Convert to Batch domain model with enriched product information.
@@ -41,7 +43,8 @@ data class BatchWithProductInfo(
             status = status,
             name = productName,
             packSize = packSize,
-            deletedAt = null // Active batches (from findAllWithProductInfo) have deletedAt = NULL
+            deletedAt = null, // Active batches (from findAllWithProductInfo) have deletedAt = NULL
+            actionTaken = com.decathlon.smartnutristock.domain.model.WorkflowAction.valueOf(actionTaken)
         )
     }
 }

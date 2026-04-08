@@ -3,6 +3,7 @@ package com.decathlon.smartnutristock.integration
 import com.decathlon.smartnutristock.data.dao.StockDao
 import com.decathlon.smartnutristock.data.entity.ActiveStockEntity
 import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
+import com.decathlon.smartnutristock.domain.model.WorkflowAction
 import com.decathlon.smartnutristock.domain.usecase.CalculateStatusUseCase
 import com.decathlon.smartnutristock.domain.usecase.GetSemaphoreCountersUseCase
 import com.decathlon.smartnutristock.presentation.ui.dashboard.DashboardUiState
@@ -92,6 +93,10 @@ class SemaphoreIntegrationTest {
         }
 
         override suspend fun updateProductName(ean: String, name: String): Int {
+            TODO("Not needed for this integration test")
+        }
+
+        override suspend fun updateBatchAction(batchId: String, action: WorkflowAction): Int {
             TODO("Not needed for this integration test")
         }
     }

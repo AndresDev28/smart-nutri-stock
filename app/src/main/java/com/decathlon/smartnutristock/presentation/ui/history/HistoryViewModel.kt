@@ -2,21 +2,27 @@ package com.decathlon.smartnutristock.presentation.ui.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.decathlon.smartnutristock.domain.export.ExportFormat
 import com.decathlon.smartnutristock.domain.model.Batch
+import com.decathlon.smartnutristock.domain.usecase.ExportInventoryUseCase
 import com.decathlon.smartnutristock.domain.usecase.GetAllBatchesUseCase
 import com.decathlon.smartnutristock.domain.usecase.RestoreBatchUseCase
 import com.decathlon.smartnutristock.domain.usecase.SoftDeleteBatchUseCase
+import com.decathlon.smartnutristock.domain.usecase.UpdateBatchActionUseCase
 import com.decathlon.smartnutristock.domain.usecase.UpdateBatchUseCase
 import com.decathlon.smartnutristock.domain.usecase.UpdateProductNameUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.io.File
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
@@ -33,6 +39,7 @@ import javax.inject.Inject
  * - Handles loading and error states
  * - Handles batch editing via ProductRegistrationBottomSheet
  * - Handles soft delete with undo functionality
+ * - Handles inventory export to CSV/PDF formats
  */
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
@@ -40,7 +47,9 @@ class HistoryViewModel @Inject constructor(
     private val softDeleteBatchUseCase: SoftDeleteBatchUseCase,
     private val restoreBatchUseCase: RestoreBatchUseCase,
     private val updateBatchUseCase: UpdateBatchUseCase,
-    private val updateProductNameUseCase: UpdateProductNameUseCase
+    private val updateProductNameUseCase: UpdateProductNameUseCase,
+    private val updateBatchActionUseCase: UpdateBatchActionUseCase,
+    private val exportInventoryUseCase: ExportInventoryUseCase
 ) : ViewModel() {
 
     // UI State
@@ -57,6 +66,18 @@ class HistoryViewModel @Inject constructor(
     private val _editBottomSheetState = MutableStateFlow<EditBottomSheetState>(EditBottomSheetState.Closed)
     val editBottomSheetState: StateFlow<EditBottomSheetState> = _editBottomSheetState.asStateFlow()
 
+    // Action Filter State
+    private val _actionFilter = MutableStateFlow(ActionFilter.ALL)
+    val actionFilter: StateFlow<ActionFilter> = _actionFilter.asStateFlow()
+
+    // Export State
+    private val _exportState = MutableStateFlow<ExportState>(ExportState.Idle)
+    val exportState: StateFlow<ExportState> = _exportState.asStateFlow()
+
+    // Export Event (one-shot)
+    private val _exportEvent = MutableSharedFlow<ExportEvent>()
+    val exportEvent = _exportEvent.asSharedFlow()
+
     // Undo timer job
     private var undoJob: Job? = null
 
@@ -69,6 +90,7 @@ class HistoryViewModel @Inject constructor(
      * Load all batches ONCE (not a flow collector).
      * This prevents infinite recomposition loop.
      * Status is already calculated dynamically in StockRepository.
+     * Batches are filtered by action state based on current filter selection.
      */
     private fun loadBatchesOnce() {
         viewModelScope.launch {
@@ -76,9 +98,16 @@ class HistoryViewModel @Inject constructor(
 
             try {
                 // Use first() from flow to get batches once, not collect
-                val batches = getAllBatchesUseCase().first()
+                val allBatches = getAllBatchesUseCase().first()
 
-                _uiState.value = HistoryUiState.Success(batches)
+                // Filter batches by action state based on current filter
+                val filteredBatches = when (_actionFilter.value) {
+                    ActionFilter.ALL -> allBatches
+                    ActionFilter.PENDING -> allBatches.filter { it.actionTaken == com.decathlon.smartnutristock.domain.model.WorkflowAction.PENDING }
+                    ActionFilter.WITH_ACTION -> allBatches.filter { it.actionTaken != com.decathlon.smartnutristock.domain.model.WorkflowAction.PENDING }
+                }
+
+                _uiState.value = HistoryUiState.Success(filteredBatches)
             } catch (e: Exception) {
                 _uiState.value = HistoryUiState.Error(e.message ?: "Error al cargar lotes")
             }
@@ -89,6 +118,53 @@ class HistoryViewModel @Inject constructor(
      * Reload batches (user-triggered refresh).
      */
     fun refresh() {
+        loadBatchesOnce()
+    }
+
+    /**
+     * Toggle workflow action for a batch.
+     *
+     * - If PENDING → becomes DISCOUNTED (for YELLOW batches)
+     * - If PENDING → becomes REMOVED (for RED/expired batches)
+     * - If DISCOUNTED/REMOVED → reverts to PENDING
+     *
+     * @param batch The batch to toggle action for
+     */
+    fun toggleBatchAction(batch: Batch) {
+        viewModelScope.launch {
+            // Determine new action based on current state and semaphore status
+            val newAction = when (batch.actionTaken) {
+                com.decathlon.smartnutristock.domain.model.WorkflowAction.PENDING -> {
+                    // If YELLOW (pending expiry), mark as DISCOUNTED
+                    // If RED/EXPIRED, mark as REMOVED
+                    if (batch.status == com.decathlon.smartnutristock.domain.model.SemaphoreStatus.EXPIRED) {
+                        com.decathlon.smartnutristock.domain.model.WorkflowAction.REMOVED
+                    } else {
+                        com.decathlon.smartnutristock.domain.model.WorkflowAction.DISCOUNTED
+                    }
+                }
+                else -> {
+                    // If action already taken, revert to PENDING
+                    com.decathlon.smartnutristock.domain.model.WorkflowAction.PENDING
+                }
+            }
+
+            // Update the action in database
+            updateBatchActionUseCase(batch.id, newAction)
+
+            // Reload batches to show updated state
+            loadBatchesOnce()
+        }
+    }
+
+    /**
+     * Set the action filter for batch display.
+     *
+     * @param filter The filter to apply (ALL, PENDING, WITH_ACTION)
+     */
+    fun setActionFilter(filter: ActionFilter) {
+        _actionFilter.value = filter
+        // Reload batches with new filter
         loadBatchesOnce()
     }
 
@@ -250,6 +326,46 @@ class HistoryViewModel @Inject constructor(
         undoJob = null
     }
 
+    /**
+     * Export inventory to the specified format.
+     *
+     * This method orchestrates the export process:
+     * 1. Sets export state to Loading
+     * 2. Calls ExportInventoryUseCase with the selected format
+     * 3. Updates export state to Success or Error
+     * 4. Emits ShareFile event on success for the UI to trigger sharing
+     *
+     * @param format The export format (CSV or PDF)
+     */
+    fun onExportFormatSelected(format: ExportFormat) {
+        viewModelScope.launch {
+            _exportState.value = ExportState.Loading
+
+            exportInventoryUseCase(format)
+                .onSuccess { file ->
+                    val mimeType = when (format) {
+                        ExportFormat.CSV -> "text/csv"
+                        ExportFormat.PDF -> "application/pdf"
+                    }
+                    _exportState.value = ExportState.Success(file)
+                    _exportEvent.emit(ExportEvent.ShareFile(file, mimeType))
+                }
+                .onFailure { error ->
+                    _exportState.value = ExportState.Error(error.message ?: "Error al exportar")
+                }
+        }
+    }
+
+    /**
+     * Clear the export state back to Idle.
+     *
+     * This should be called after the share intent is launched or after
+     * displaying an error message to the user.
+     */
+    fun clearExportState() {
+        _exportState.value = ExportState.Idle
+    }
+
     override fun onCleared() {
         super.onCleared()
         // Cancel the undo job to prevent memory leaks
@@ -307,4 +423,72 @@ sealed class EditBottomSheetState {
      * @property batch The batch being edited
      */
     data class Open(val batch: Batch) : EditBottomSheetState()
+}
+
+/**
+ * Action filter enum for filtering batches by workflow action state.
+ */
+enum class ActionFilter {
+    /**
+     * Show all batches regardless of action state.
+     */
+    ALL,
+
+    /**
+     * Show only batches with PENDING action (no action taken yet).
+     */
+    PENDING,
+
+    /**
+     * Show only batches with action taken (DISCOUNTED or REMOVED).
+     */
+    WITH_ACTION
+}
+
+/**
+ * Export state for inventory export operation.
+ *
+ * This sealed class represents the different states of the export process,
+ * allowing the UI to show appropriate feedback (loading indicator, error message, etc.).
+ */
+sealed class ExportState {
+    /**
+     * No export operation in progress.
+     */
+    data object Idle : ExportState()
+
+    /**
+     * Export is currently in progress.
+     */
+    data object Loading : ExportState()
+
+    /**
+     * Export completed successfully with a generated file.
+     *
+     * @property file The exported file (CSV or PDF)
+     */
+    data class Success(val file: File) : ExportState()
+
+    /**
+     * Export failed with an error.
+     *
+     * @property message The error message to display to the user
+     */
+    data class Error(val message: String) : ExportState()
+}
+
+/**
+ * Export event for one-shot actions (e.g., triggering share intent).
+ *
+ * This sealed class represents events that should be handled once by the UI,
+ * such as launching the share sheet after a successful export.
+ */
+sealed class ExportEvent {
+    /**
+     * Event to trigger sharing of the exported file.
+     *
+     * @property file The exported file to share
+     * @property mimeType The MIME type of the file (text/csv or application/pdf)
+     */
+    data class ShareFile(val file: File, val mimeType: String) : ExportEvent()
 }

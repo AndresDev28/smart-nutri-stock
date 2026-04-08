@@ -13,10 +13,10 @@ import com.decathlon.smartnutristock.data.local.InstantConverters
 
 @Database(
     entities = [ProductCatalogEntity::class, ActiveStockEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
-@TypeConverters(InstantConverters::class)
+@TypeConverters(InstantConverters::class, WorkflowActionConverter::class)
 abstract class SmartNutriStockDatabase : RoomDatabase() {
     abstract fun productCatalogDao(): ProductCatalogDao
     abstract fun stockDao(): StockDao
@@ -68,6 +68,15 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         // Create index on deletedAt for query performance
         database.execSQL(
             "CREATE INDEX IF NOT EXISTS index_active_stocks_deletedAt ON active_stocks(deletedAt)"
+        )
+    }
+}
+
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        // Add actionTaken column for workflow action tracking
+        database.execSQL(
+            "ALTER TABLE active_stocks ADD COLUMN actionTaken TEXT NOT NULL DEFAULT 'PENDING'"
         )
     }
 }
