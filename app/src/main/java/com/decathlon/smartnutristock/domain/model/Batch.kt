@@ -13,6 +13,7 @@ import java.time.Instant
  * @property name Product name (nullable - from product_catalog)
  * @property packSize Pack size in grams (nullable - from product_catalog)
  * @property deletedAt Timestamp when batch was soft-deleted (null if active)
+ * @property actionTaken Workflow action taken on this batch (default: PENDING)
  */
 data class Batch(
     val id: String,
@@ -22,5 +23,6 @@ data class Batch(
     val status: SemaphoreStatus,
     val name: String? = null,
     val packSize: Int? = null,
-    val deletedAt: Instant? = null
+    val deletedAt: Instant? = null,
+    val actionTaken: WorkflowAction = WorkflowAction.PENDING
 )

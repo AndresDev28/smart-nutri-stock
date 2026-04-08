@@ -7,6 +7,7 @@ import com.decathlon.smartnutristock.domain.model.Batch
 import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
 import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
 import com.decathlon.smartnutristock.domain.model.UpsertBatchResult
+import com.decathlon.smartnutristock.domain.model.WorkflowAction
 import com.decathlon.smartnutristock.domain.repository.StockRepository
 import com.decathlon.smartnutristock.domain.usecase.CalculateStatusUseCase
 import androidx.room.Transaction
@@ -135,7 +136,8 @@ class StockRepositoryImpl @Inject constructor(
                     expiryDate = batch.expiryDate,
                     createdAt = existing.createdAt,
                     updatedAt = Instant.now(clock),
-                    deletedAt = existing.deletedAt
+                    deletedAt = existing.deletedAt,
+                    actionTaken = batch.actionTaken.name
                 )
                 stockDao.update(updatedEntity)
             }
@@ -156,6 +158,10 @@ class StockRepositoryImpl @Inject constructor(
         return productCatalogDao.updateProductName(ean, name)
     }
 
+    override suspend fun updateBatchAction(batchId: String, action: WorkflowAction): Int {
+        return stockDao.updateAction(batchId, action.name)
+    }
+
     /**
      * Extension function to convert ActiveStockEntity to Batch domain model.
      */
@@ -167,7 +173,8 @@ class StockRepositoryImpl @Inject constructor(
             quantity = this.quantity,
             expiryDate = this.expiryDate,
             status = calculateStatusUseCase(this.expiryDate, clock),
-            deletedAt = this.deletedAt
+            deletedAt = this.deletedAt,
+            actionTaken = WorkflowAction.valueOf(this.actionTaken)
         )
     }
 
@@ -183,7 +190,8 @@ class StockRepositoryImpl @Inject constructor(
             expiryDate = this.expiryDate,
             createdAt = now,
             updatedAt = now,
-            deletedAt = this.deletedAt
+            deletedAt = this.deletedAt,
+            actionTaken = this.actionTaken.name
         )
     }
 }

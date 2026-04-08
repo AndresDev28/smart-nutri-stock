@@ -4,6 +4,7 @@ import com.decathlon.smartnutristock.domain.model.Batch
 import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
 import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
 import com.decathlon.smartnutristock.domain.model.UpsertBatchResult
+import com.decathlon.smartnutristock.domain.model.WorkflowAction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -175,6 +176,10 @@ private class DummyStockRepository : StockRepository {
     }
 
     override suspend fun updateProductName(ean: String, name: String): Int {
+        return 0
+    }
+
+    override suspend fun updateBatchAction(batchId: String, action: WorkflowAction): Int {
         return 0
     }
 }

@@ -14,8 +14,8 @@ android {
         applicationId = "com.decathlon.smartnutristock"
         minSdk = 26  // API 26 required for java.time.DateTimeFormatter
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 3
+        versionName = "2.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

@@ -3,6 +3,7 @@ package com.decathlon.smartnutristock.domain.repository
 import com.decathlon.smartnutristock.domain.model.Batch
 import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
 import com.decathlon.smartnutristock.domain.model.UpsertBatchResult
+import com.decathlon.smartnutristock.domain.model.WorkflowAction
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -116,4 +117,13 @@ interface StockRepository {
      * @return Number of rows affected (1 if updated, 0 if not found)
      */
     suspend fun updateProductName(ean: String, name: String): Int
+
+    /**
+     * Update the workflow action taken on a batch.
+     *
+     * @param batchId The unique identifier of the batch
+     * @param action The workflow action to apply (PENDING, DISCOUNTED, REMOVED)
+     * @return Number of rows affected (1 if updated, 0 if not found)
+     */
+    suspend fun updateBatchAction(batchId: String, action: WorkflowAction): Int
 }

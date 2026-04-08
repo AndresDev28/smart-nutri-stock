@@ -6,6 +6,7 @@ import com.decathlon.smartnutristock.domain.model.Batch
 import com.decathlon.smartnutristock.domain.usecase.GetAllBatchesUseCase
 import com.decathlon.smartnutristock.domain.usecase.RestoreBatchUseCase
 import com.decathlon.smartnutristock.domain.usecase.SoftDeleteBatchUseCase
+import com.decathlon.smartnutristock.domain.usecase.UpdateBatchActionUseCase
 import com.decathlon.smartnutristock.domain.usecase.UpdateBatchUseCase
 import com.decathlon.smartnutristock.domain.usecase.UpdateProductNameUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,7 +41,8 @@ class HistoryViewModel @Inject constructor(
     private val softDeleteBatchUseCase: SoftDeleteBatchUseCase,
     private val restoreBatchUseCase: RestoreBatchUseCase,
     private val updateBatchUseCase: UpdateBatchUseCase,
-    private val updateProductNameUseCase: UpdateProductNameUseCase
+    private val updateProductNameUseCase: UpdateProductNameUseCase,
+    private val updateBatchActionUseCase: UpdateBatchActionUseCase
 ) : ViewModel() {
 
     // UI State
@@ -57,6 +59,10 @@ class HistoryViewModel @Inject constructor(
     private val _editBottomSheetState = MutableStateFlow<EditBottomSheetState>(EditBottomSheetState.Closed)
     val editBottomSheetState: StateFlow<EditBottomSheetState> = _editBottomSheetState.asStateFlow()
 
+    // Action Filter State
+    private val _actionFilter = MutableStateFlow(ActionFilter.ALL)
+    val actionFilter: StateFlow<ActionFilter> = _actionFilter.asStateFlow()
+
     // Undo timer job
     private var undoJob: Job? = null
 
@@ -69,6 +75,7 @@ class HistoryViewModel @Inject constructor(
      * Load all batches ONCE (not a flow collector).
      * This prevents infinite recomposition loop.
      * Status is already calculated dynamically in StockRepository.
+     * Batches are filtered by action state based on current filter selection.
      */
     private fun loadBatchesOnce() {
         viewModelScope.launch {
@@ -76,9 +83,16 @@ class HistoryViewModel @Inject constructor(
 
             try {
                 // Use first() from flow to get batches once, not collect
-                val batches = getAllBatchesUseCase().first()
+                val allBatches = getAllBatchesUseCase().first()
 
-                _uiState.value = HistoryUiState.Success(batches)
+                // Filter batches by action state based on current filter
+                val filteredBatches = when (_actionFilter.value) {
+                    ActionFilter.ALL -> allBatches
+                    ActionFilter.PENDING -> allBatches.filter { it.actionTaken == com.decathlon.smartnutristock.domain.model.WorkflowAction.PENDING }
+                    ActionFilter.WITH_ACTION -> allBatches.filter { it.actionTaken != com.decathlon.smartnutristock.domain.model.WorkflowAction.PENDING }
+                }
+
+                _uiState.value = HistoryUiState.Success(filteredBatches)
             } catch (e: Exception) {
                 _uiState.value = HistoryUiState.Error(e.message ?: "Error al cargar lotes")
             }
@@ -89,6 +103,53 @@ class HistoryViewModel @Inject constructor(
      * Reload batches (user-triggered refresh).
      */
     fun refresh() {
+        loadBatchesOnce()
+    }
+
+    /**
+     * Toggle workflow action for a batch.
+     *
+     * - If PENDING → becomes DISCOUNTED (for YELLOW batches)
+     * - If PENDING → becomes REMOVED (for RED/expired batches)
+     * - If DISCOUNTED/REMOVED → reverts to PENDING
+     *
+     * @param batch The batch to toggle action for
+     */
+    fun toggleBatchAction(batch: Batch) {
+        viewModelScope.launch {
+            // Determine new action based on current state and semaphore status
+            val newAction = when (batch.actionTaken) {
+                com.decathlon.smartnutristock.domain.model.WorkflowAction.PENDING -> {
+                    // If YELLOW (pending expiry), mark as DISCOUNTED
+                    // If RED/EXPIRED, mark as REMOVED
+                    if (batch.status == com.decathlon.smartnutristock.domain.model.SemaphoreStatus.EXPIRED) {
+                        com.decathlon.smartnutristock.domain.model.WorkflowAction.REMOVED
+                    } else {
+                        com.decathlon.smartnutristock.domain.model.WorkflowAction.DISCOUNTED
+                    }
+                }
+                else -> {
+                    // If action already taken, revert to PENDING
+                    com.decathlon.smartnutristock.domain.model.WorkflowAction.PENDING
+                }
+            }
+
+            // Update the action in database
+            updateBatchActionUseCase(batch.id, newAction)
+
+            // Reload batches to show updated state
+            loadBatchesOnce()
+        }
+    }
+
+    /**
+     * Set the action filter for batch display.
+     *
+     * @param filter The filter to apply (ALL, PENDING, WITH_ACTION)
+     */
+    fun setActionFilter(filter: ActionFilter) {
+        _actionFilter.value = filter
+        // Reload batches with new filter
         loadBatchesOnce()
     }
 
@@ -307,4 +368,24 @@ sealed class EditBottomSheetState {
      * @property batch The batch being edited
      */
     data class Open(val batch: Batch) : EditBottomSheetState()
+}
+
+/**
+ * Action filter enum for filtering batches by workflow action state.
+ */
+enum class ActionFilter {
+    /**
+     * Show all batches regardless of action state.
+     */
+    ALL,
+
+    /**
+     * Show only batches with PENDING action (no action taken yet).
+     */
+    PENDING,
+
+    /**
+     * Show only batches with action taken (DISCOUNTED or REMOVED).
+     */
+    WITH_ACTION
 }
