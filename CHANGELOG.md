@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.4.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.3.0...v2.4.0) (2026-04-08)
+
+
+### Features
+
+* implement inventory workflow buttons and action filtering v2.3.0 ([596323b](https://github.com/AndresDev28/smart-nutri-stock/commit/596323b5e7acf27e4ba940b8d925bc0afdd7c028))
+* implement report export system (CSV/PDF) v2.4.0 ([da45951](https://github.com/AndresDev28/smart-nutri-stock/commit/da45951715ca61181d3eb924926a93e75d8d7e5e))
+
+
+### Bug Fixes
+
+* add missing ExportInventoryUseCase to HistoryViewModelFilterTest ([4e8312d](https://github.com/AndresDev28/smart-nutri-stock/commit/4e8312df3c20d97b64d8b1ea7de61f967dea2a7f))
+
 ## [2.3.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.2.0...v2.3.0) (2026-04-06)
 
 
