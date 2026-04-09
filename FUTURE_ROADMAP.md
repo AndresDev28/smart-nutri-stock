@@ -1,8 +1,8 @@
 # Smart Nutri-Stock: Future Roadmap
 
 > **Document Status**: Post-MVP Phase 2 Planning  
-> **Last Updated**: 28/03/2026  
-> **MVP Version**: 2.1.0  
+> **Last Updated**: 09/04/2026  
+> **MVP Version**: 2.5.0  
 > **Target Device**: Samsung XCover7 (B2B Internal Tool)
 
 ---
@@ -92,46 +92,9 @@ And Delete button becomes visible
 
 ---
 
-### 🟡 MEDIA (4): OCR de Fechas con Cámara
-
-**Priority**: P2 - Medium  
-**Effort**: High (7-10 days)  
-**Dependencies**: Camera permissions, ML Kit integration
-
-#### Description
-
-Use Google ML Kit to scan expiry dates directly from product packaging, eliminating manual date entry.
-
-#### Requirements
-
-- [ ] Integrate Google ML Kit Text Recognition API
-- [ ] Camera preview in batch input flow
-- [ ] Date pattern recognition (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD)
-- [ ] Fallback to manual entry if OCR fails
-- [ ] Confidence threshold display (e.g., "95% confident")
-- [ ] Support for multiple date formats common in EU
-
-#### Technical Approach
-
-- Add `com.google.mlkit:text-recognition` dependency
-- Create `DateOcrScanner` use case
-- CameraX for camera preview
-- Regex patterns for date extraction
-- Store scanned image for audit (optional)
-
-#### Acceptance Criteria
-
-```gherkin
-Given user is adding a new batch
-When user taps "Escanear Fecha" button
-Then camera preview opens
-And OCR attempts to detect date on packaging
-And detected date is auto-filled with confidence score
-And user can confirm or edit the date
-```
-
 ---
 
+### 🟡 MEDIA (5): Notificaciones Push (Alertas Locales)
 ### 🟡 MEDIA (5): Notificaciones Push (Alertas Locales)
 
 **Priority**: P2 - Medium
@@ -319,7 +282,7 @@ res/
 
 ### Phase 2.3 - Advanced Features (Sprint 5-7)
 
-- Feature #4: OCR de Fechas
+- Feature #4: OCR de Fechas (COMPLETADO)
 - Feature #5: Notificaciones Push
 - Feature #6: Autenticación & Sync
 - Estimated: 5-6 weeks
@@ -374,7 +337,44 @@ Action buttons implemented in `BatchCard` for YELLOW and RED/EXPIRED products. C
 
 ---
 
-### ✅ COMPLETADA: Exportación de Reportes (CSV/PDF)
+### ✅ COMPLETADA: OCR de Fechas con Cámara
+
+**Completed**: 2026-04-09  
+**Version**: v2.5.0  
+**Status**: ✅ Implemented with high-precision date extraction
+
+#### Description
+Implemented automated expiry date extraction from product packaging using Google ML Kit Text Recognition, eliminating manual entry and reducing registration time.
+
+#### Technical Implementation
+- ✅ **DateExtractorUseCase**: Robust regex for DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, DD/MM/YY, MM/YY, MM/YYYY, and ISO YYYY-MM-DD.
+- ✅ **EU Regulation Compliance**: Automatic conversion of MM/YY and MM/YYYY formats to the end of the month using `YearMonth.atEndOfMonth()`.
+- ✅ **OcrCameraOverlay**: Custom CameraX implementation with ML Kit TextRecognizer and `DisposableEffect` for lifecycle-safe cleanup.
+- ✅ **Hardware Handoff**: Sequential camera access logic (Barcode $\rightarrow$ OCR $\rightarrow$ Barcode) with `isCameraReleased` state gate to prevent race conditions.
+- ✅ **Integration**: OCR available in both `ProductRegistrationBottomSheet` and `ScannerScreen` (BatchInputStep.SelectExpiryDate).
+- ✅ **UX/Robustness**: 5s timeout with graceful manual fallback ("No se detectó fecha. Ingrese manualmente.") and permission handling via `rememberLauncherForActivityResult`.
+
+#### Hotfixes Applied
+- ✅ **Camera Blackout Fix**: Resolved hardware lock by ensuring explicit `unbind()` before switching between barcode and OCR modes.
+- ✅ **Batch Separation Fix**: Implemented uniqueness logic (Same EAN + same date $\rightarrow$ SUM quantities; Same EAN + different date $\rightarrow$ NEW record).
+
+#### Test Coverage
+- ✅ 34 unit tests (21 for `DateExtractorUseCase` + 13 repository/integration tests).
+- ✅ Manual device testing PASSED on Samsung XCover7.
+
+#### Acceptance Criteria (VERIFIED ✅)
+```gherkin
+Given user is adding a new batch
+When user taps "Escanear Fecha" button
+Then camera preview opens
+And OCR attempts to detect date on packaging
+And detected date is auto-filled (handling MM/YY as end-of-month)
+And user can confirm or edit the date
+```
+
+**SDD Artifacts**: `sdd/ocr-fechas-camara-mlkit/*`, `sdd/ocr-fechas-camara-mlkit-hotfixes/*`
+
+---
 
 **Priority**: P1 - High  
 **Effort**: Medium (5-7 days)  
@@ -442,6 +442,8 @@ All MVP development artifacts are stored in **Engram** (persistent memory):
 - `sdd-init/smart-nutri-stock` - Project context
 - `sdd/fix-expired-counter-bug/*` - Bug fix artifacts
 - `sdd/feature/batch-management/*` - Batch management feature
+- `sdd/ocr-fechas-camara-mlkit/*` - OCR date scanning feature
+- `sdd/ocr-fechas-camara-mlkit-hotfixes/*` - Camera handoff + batch separation hotfixes
 
 Future features should follow the **SDD Workflow**:
 

@@ -17,9 +17,10 @@
 
 Retail efficiency meets food sustainability. By leveraging **Google ML Kit**, this application transforms the traditional "daily check" into a seamless, high-speed digital process, ensuring that no product expires on the shelf and reducing food waste to near-zero.
 
-## ✨ Key Features (MVP v2.1.0)
+## ✨ Key Features (v2.5.0)
 
 - **High-Speed Scanning**: Native barcode recognition for rapid stock intake.
+- **OCR Date Scanning**: Automated expiry date extraction via camera using Google ML Kit Text Recognition.
 - **Smart Semaphore System**: Real-time dynamic calculation of product status:
   - 🔴 **Expired/Today**: Critical priority.
   - 🟡 **Warning**: Expiring within 3 days.
@@ -33,9 +34,9 @@ Retail efficiency meets food sustainability. By leveraging **Google ML Kit**, th
 - **Language**: Kotlin + Coroutines & Flow.
 - **UI Framework**: Jetpack Compose (Declarative UI).
 - **Local Storage**: Room Persistence Library (Offline-first).
-- **Intelligence**: Google ML Kit (Barcode & Vision API).
+- **Intelligence**: Google ML Kit (Barcode & Text Recognition API).
 - **Dependency Injection**: Koin / Hilt.
-- **Testing**: 80+ Unit & Integration Tests (TDD approach).
+- **Testing**: 115+ Unit & Integration Tests (TDD approach).
 
 ## 🏗 Architecture
 
@@ -49,7 +50,7 @@ Built upon **Clean Architecture** principles to ensure scalability and maintaina
 
 - [x] **Full CRUD**: Edit and delete existing batches from history.
 - [x] **Workflow Actions**: One-tap "Discount Applied" (-20%) or "Removed" flags.
-- [ ] **OCR Expiry Scanning**: Fully automated date extraction via computer vision.
+- [x] **OCR Expiry Scanning**: Fully automated date extraction via computer vision (v2.5.0).
 - [ ] **Cloud Sync**: Multi-device synchronization via Supabase/Firebase.
 - [x] **Reporting**: Automated CSV/PDF export for inventory management.
 
