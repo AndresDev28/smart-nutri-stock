@@ -47,11 +47,11 @@ Built upon **Clean Architecture** principles to ensure scalability and maintaina
 
 ## 🚀 Phase 2 Roadmap (Fase 2)
 
-- [ ] **Full CRUD**: Edit and delete existing batches from history.
-- [ ] **Workflow Actions**: One-tap "Discount Applied" (-20%) or "Removed" flags.
+- [x] **Full CRUD**: Edit and delete existing batches from history.
+- [x] **Workflow Actions**: One-tap "Discount Applied" (-20%) or "Removed" flags.
 - [ ] **OCR Expiry Scanning**: Fully automated date extraction via computer vision.
 - [ ] **Cloud Sync**: Multi-device synchronization via Supabase/Firebase.
-- [ ] **Reporting**: Automated CSV/PDF export for inventory management.
+- [x] **Reporting**: Automated CSV/PDF export for inventory management.
 
 ---
 

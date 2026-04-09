@@ -10,6 +10,7 @@
 ## Executive Summary
 
 This document captures all deferred features and design directions identified during the MVP sprint. The MVP (v2.1.0) successfully delivers:
+
 - ✅ Barcode scanning with product registration
 - ✅ Batch management with expiry dates
 - ✅ Semaphore status system (Green/Yellow/Red/Expired)
@@ -24,42 +25,6 @@ The following features are prioritized for **Phase 2 (Post-MVP)** development.
 
 ## Prioritized Backlog
 
-### 🔴 CRÍTICA (1): Edición y Borrado Completo (CRUD)
-
-**Priority**: P0 - Critical  
-**Effort**: Medium (3-5 days)  
-**Dependencies**: None
-
-#### Description
-Allow users to tap a product card in the History screen to edit or delete batch data. This completes the CRUD cycle for inventory management.
-
-#### Requirements
-- [ ] Tap gesture on `BatchCard` in `HistoryScreen` opens bottom sheet or dialog
-- [ ] Edit mode allows modification of:
-  - Gramaje (weight/quantity)
-  - Fecha de caducidad (expiry date)
-  - EAN (barcode)
-- [ ] Delete action with confirmation dialog
-- [ ] Confirmation dialog copy: "¿Estás seguro de que quieres eliminar este lote?"
-- [ ] Undo snackbar for 5 seconds after deletion
-
-#### Technical Approach
-- Reuse `ProductRegistrationBottomSheet` pattern for edit mode
-- Add `DeleteBatchUseCase` in Domain layer
-- Implement soft-delete in `StockRepository` (mark as deleted, hard delete after 30 days)
-- Add `BatchEditDialog` composable
-
-#### Acceptance Criteria
-```gherkin
-Given a product exists in history
-When user taps the product card
-Then an edit/delete dialog appears
-And user can modify gramaje, fecha, or EAN
-And user can delete with confirmation
-```
-
----
-
 ### ✅ COMPLETADA: Botones de Acción (El "Workflow")
 
 **Priority**: P1 - High  
@@ -69,9 +34,11 @@ And user can delete with confirmation
 **Status**: ✅ Implemented with hotfixes for expired product logic
 
 #### Description
+
 Action buttons were successfully implemented in `BatchCard` for YELLOW and RED/EXPIRED products, creating a workflow for inventory management decisions.
 
 #### Implemented Requirements
+
 - ✅ **Yellow products** show action: "Desc -20%" button (toggles PENDING ↔ DISCOUNTED)
   - Implemented with FilledTonalButton, 48dp min height for XCover7
   - Changes status indicator with visual feedback
@@ -85,6 +52,7 @@ Action buttons were successfully implemented in `BatchCard` for YELLOW and RED/E
 - ✅ Filter in History: "Todos" | "Pendientes" | "Con acción" (ActionFilter enum)
 
 #### Technical Implementation
+
 - ✅ `WorkflowAction` enum created (PENDING, DISCOUNTED, REMOVED)
 - ✅ `ActiveStockEntity` extended with `actionTaken` field (String-based TypeConverter)
 - ✅ `UpdateBatchActionUseCase` implemented in Domain layer
@@ -93,17 +61,20 @@ Action buttons were successfully implemented in `BatchCard` for YELLOW and RED/E
 - ✅ Filter chips row in `HistoryScreen` with StateFlow management
 
 #### Hotfixes Applied
+
 - ✅ Hotfix 1: RED + REMOVED → Delete button (unidirectional) calls `softDeleteBatch()`
 - ✅ Hotfix 2a: RED + PENDING → Only "Retirar" button (NO discount)
 - ✅ Hotfix 2b: RED + DISCOUNTED → AssistChip "Descuento Aplicado" + Delete button
 - ✅ All 5 status/action combos handled correctly
 
 #### Test Coverage
+
 - ✅ 117 tests passed (Domain: 15, Data: 4, Presentation: 4, Total: 117)
 - ✅ All spec requirements verified compliant (13/15 scenarios, 2 partial - UI covered by unit tests)
 - ✅ Room migration v4 → v5 verified with existing data defaulting to "PENDING"
 
 #### Acceptance Criteria (VERIFIED ✅)
+
 ```gherkin
 Given a product has YELLOW status (expires in 1-3 days)
 When user taps "Desc -20%" button
@@ -119,8 +90,6 @@ And Delete button becomes visible
 
 ---
 
-
-
 ---
 
 ### 🟡 MEDIA (4): OCR de Fechas con Cámara
@@ -130,9 +99,11 @@ And Delete button becomes visible
 **Dependencies**: Camera permissions, ML Kit integration
 
 #### Description
+
 Use Google ML Kit to scan expiry dates directly from product packaging, eliminating manual date entry.
 
 #### Requirements
+
 - [ ] Integrate Google ML Kit Text Recognition API
 - [ ] Camera preview in batch input flow
 - [ ] Date pattern recognition (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD)
@@ -141,6 +112,7 @@ Use Google ML Kit to scan expiry dates directly from product packaging, eliminat
 - [ ] Support for multiple date formats common in EU
 
 #### Technical Approach
+
 - Add `com.google.mlkit:text-recognition` dependency
 - Create `DateOcrScanner` use case
 - CameraX for camera preview
@@ -148,6 +120,7 @@ Use Google ML Kit to scan expiry dates directly from product packaging, eliminat
 - Store scanned image for audit (optional)
 
 #### Acceptance Criteria
+
 ```gherkin
 Given user is adding a new batch
 When user taps "Escanear Fecha" button
@@ -159,16 +132,53 @@ And user can confirm or edit the date
 
 ---
 
-### 🟡 MEDIA (5): Autenticación (Login) & Sincronización Nube
+### 🟡 MEDIA (5): Notificaciones Push (Alertas Locales)
+
+**Priority**: P2 - Medium
+**Effort**: Medium (3-5 days)
+**Dependencies**: Configuración de WorkManager y permisos (POST_NOTIFICATIONS)
+
+#### Description
+
+Local push notifications to alert personnel about products entering "Yellow" (expiring soon) or "Red" (expired) states. This transforms the app from a passive ledger into an active alerting system.
+
+#### Requirements
+
+- [ ] Daily background check via WorkManager for status changes
+- [ ] Grouped push notifications (e.g., "Tienes 3 lotes por caducar pronto")
+- [ ] Deep linking: Tapping notification opens History filtered by the relevant state
+- [ ] Notification channels: "Alertas Críticas" (Rojo) y "Avisos Preventivos" (Amarillo)
+- [ ] Request Android 13+ Notification Permissions gracefully
+
+#### Technical Approach
+
+- Add `Worker` for daily scans of `ActiveStockEntity` against current date
+- Use `NotificationManagerCompat` and explicit Intents for deep linking
+- Make sure to consider battery optimization constraints
+
+#### Acceptance Criteria
+
+```gherkin
+Given there are 2 yellow batches in the database
+When the daily background check runs
+Then a single grouped notification is triggered
+And tapping it opens HistoryScreen filtered by "Yellow"
+```
+
+---
+
+### 🟡 MEDIA (6): Autenticación (Login) & Sincronización Nube
 
 **Priority**: P2 - Medium  
 **Effort**: Very High (10-15 days)  
 **Dependencies**: Backend infrastructure decision (Supabase vs Firebase)
 
 #### Description
+
 Implement user authentication and cloud synchronization for multi-device support and audit trail.
 
 #### Requirements
+
 - [ ] Login screen with username/password
 - [ ] Session management (JWT tokens)
 - [ ] Cloud database sync (Supabase or Firebase Firestore)
@@ -178,6 +188,7 @@ Implement user authentication and cloud synchronization for multi-device support
 - [ ] Multi-device support
 
 #### Technical Approach
+
 - **Option A: Supabase** (recommended for cost)
   - Postgres database with Row Level Security
   - Supabase Auth for authentication
@@ -188,6 +199,7 @@ Implement user authentication and cloud synchronization for multi-device support
   - Cloud Firestore offline persistence
 
 #### Architecture Changes
+
 - Add `User` domain model
 - Add `userId` to `ActiveStockEntity`
 - Implement `AuthRepository` interface
@@ -195,6 +207,7 @@ Implement user authentication and cloud synchronization for multi-device support
 - Add `LoginScreen` composable
 
 #### Acceptance Criteria
+
 ```gherkin
 Given app is opened for first time
 When user enters credentials
@@ -213,7 +226,7 @@ Then batch appears on device B after sync
 
 ---
 
-## Diseño Premium & UI (Priority 6)
+## Diseño Premium & UI (Priority 7)
 
 **Priority**: P3 - Design Excellence  
 **Effort**: Medium (5-7 days)  
@@ -222,11 +235,13 @@ Then batch appears on device B after sync
 ### El Logo 'Barcode Leaf'
 
 A stylized circular emblem that combines:
+
 - **Leaf Motif**: Represents freshness, nutrition, and organic/healthy products
 - **Abstracted Barcode Shape**: Curved barcode lines integrated into the leaf design
 - **Symbolism**: Technology + Nature = Smart inventory for fresh products
 
 **Color Scheme**:
+
 - **Teal Green** (#00897B): Nature, freshness, safety
 - **Royal Blue** (#1565C0): Trust, technology, logistics
 
@@ -234,16 +249,16 @@ A stylized circular emblem that combines:
 
 Move away from pure Material Design White to a **premium, softer aesthetic**:
 
-| Element | Current (MVP) | Future (Premium) | Hex Code |
-|---------|---------------|------------------|----------|
-| Background | White (#FFFFFF) | Off-white/Cream | #FAFAF8 |
-| Surface | White (#FFFFFF) | Warm White | #F5F5F0 |
-| Primary Action | Blue | Royal Blue | #1565C0 |
-| Safe Status | Green | Teal | #00897B |
-| Warning | Yellow | Amber | #FFB300 |
-| Danger | Red | Deep Red | #C62828 |
-| Text Primary | Black | Dark Gray | #212121 |
-| Text Secondary | Gray | Soft Gray | #757575 |
+| Element        | Current (MVP)   | Future (Premium) | Hex Code |
+| -------------- | --------------- | ---------------- | -------- |
+| Background     | White (#FFFFFF) | Off-white/Cream  | #FAFAF8  |
+| Surface        | White (#FFFFFF) | Warm White       | #F5F5F0  |
+| Primary Action | Blue            | Royal Blue       | #1565C0  |
+| Safe Status    | Green           | Teal             | #00897B  |
+| Warning        | Yellow          | Amber            | #FFB300  |
+| Danger         | Red             | Deep Red         | #C62828  |
+| Text Primary   | Black           | Dark Gray        | #212121  |
+| Text Secondary | Gray            | Soft Gray        | #757575  |
 
 ### Fonts & Typography
 
@@ -277,12 +292,14 @@ res/
 ## Technical Debt & Improvements
 
 ### Addressed in MVP
+
 - ✅ SemaphoreStatus unified (RED removed)
 - ✅ Clean Architecture established
 - ✅ TDD coverage (81+ tests)
 - ✅ CI/CD pipeline
 
 ### Future Considerations
+
 - [ ] **Performance**: Profile app on low-end devices
 - [ ] **Accessibility**: Add TalkBack support, high contrast mode
 - [ ] **Localization**: Prepare strings for ES/FR/EN
@@ -293,28 +310,46 @@ res/
 
 ## Release Planning
 
-### Phase 2.1 - CRUD Completion (Sprint 1-2)
-- Feature #1: Edición y Borrado
-- Estimated: 2 weeks
+### Phase 2.1 & 2.2 - Core & Workflow (Sprint 1-4)
 
-### Phase 2.2 - Workflow Actions (Sprint 3-4)
-- Feature #2: Botones de Acción
-- Feature #3: Exportación Reportes
-- Estimated: 3 weeks
+- Feature #1: Edición y Borrado (COMPLETADO)
+- Feature #2: Botones de Acción (COMPLETADO)
+- Feature #3: Exportación Reportes (COMPLETADO)
+- Estimated: 5 weeks (DELIVERED)
 
 ### Phase 2.3 - Advanced Features (Sprint 5-7)
+
 - Feature #4: OCR de Fechas
-- Feature #5: Autenticación & Sync
-- Estimated: 4-5 weeks
+- Feature #5: Notificaciones Push
+- Feature #6: Autenticación & Sync
+- Estimated: 5-6 weeks
 
 ### Phase 2.4 - Premium UI (Parallel)
-- Feature #6: Diseño Premium
+
+- Feature #7: Diseño Premium
 - Can run in parallel with other features
 - Estimated: 1-2 weeks
 
 ---
 
 ## Completed Features
+
+### ✅ COMPLETADA: Edición y Borrado Completo (CRUD)
+
+**Completed**: 2026-04-09  
+**Version**: v2.4.0 (as part of workflow)  
+**Status**: ✅ Implemented
+
+Full CRUD functionality implemented including:
+
+- **Edit Mode**: Reuses `ProductRegistrationBottomSheet` for modifying quantity, expiry date and product name. Accessible via three-dot menu on `BatchCard`.
+- **Soft Delete**: Deletes batch with a 5-second `Undo` snackbar for immediate recovery, improving UX over a confirmation dialog.
+- **Optimistic UI**: Instant UI feedback for both edits and deletes.
+- **Use Cases**: `UpdateBatchUseCase`, `SoftDeleteBatchUseCase`, `RestoreBatchUseCase`.
+
+**Test Coverage**: Full unit test coverage for use cases and DAO.
+
+---
 
 ### ✅ Botones de Acción (El "Workflow")
 
@@ -348,9 +383,11 @@ Action buttons implemented in `BatchCard` for YELLOW and RED/EXPIRED products. C
 **Status**: ✅ Implemented with zero external dependencies
 
 #### Description
+
 Report export system implemented for inventory status review in CSV and PDF formats, with native Android sharing via FileProvider.
 
 #### Implemented Requirements
+
 - ✅ Export button in `HistoryScreen` TopAppBar (Share icon)
 - ✅ Export formats: CSV (RFC 4180 compliant) and PDF (native PdfDocument)
 - ✅ Report includes:
@@ -362,6 +399,7 @@ Report export system implemented for inventory status review in CSV and PDF form
 - ✅ Loading state with CircularProgressIndicator during generation
 
 #### Technical Implementation
+
 - ✅ `DocumentExporter` interface with `CsvExporterImpl` and `PdfExporterImpl`
 - ✅ `ExportInventoryUseCase` orchestrates data fetching and export delegation
 - ✅ CSV: RFC 4180 compliant with proper escaping (commas, quotes, accents, ñ)
@@ -372,11 +410,13 @@ Report export system implemented for inventory status review in CSV and PDF form
 - ✅ Zero external dependencies — native Android APIs only
 
 #### Test Coverage
+
 - ✅ 22 tests passed (ExportInventoryUseCaseTest: 8, CsvExporterImplTest: 14)
 - ✅ CSV RFC 4180 escape validated: commas, double quotes, accents, special chars
 - ⚠️ PDF tests require Android instrumentation (not mockable in JVM)
 
 #### Acceptance Criteria (VERIFIED ✅)
+
 ```gherkin
 Given user is on History screen
 When user taps "Exportar" button
@@ -398,13 +438,15 @@ Then PDF shows professional table with semaphore color coding
 ## Appendix: SDD Artifacts Reference
 
 All MVP development artifacts are stored in **Engram** (persistent memory):
+
 - `sdd-init/smart-nutri-stock` - Project context
 - `sdd/fix-expired-counter-bug/*` - Bug fix artifacts
 - `sdd/feature/batch-management/*` - Batch management feature
 
 Future features should follow the **SDD Workflow**:
+
 1. `/sdd-explore` → 2. `/sdd-propose` → 3. `/sdd-spec` → 4. `/sdd-design` → 5. `/sdd-tasks` → 6. `/sdd-apply` → 7. `/sdd-verify` → 8. `/sdd-archive`
 
 ---
 
-*Document generated by Andrés & Gemini collaboration session - 28/03/2026*
+_Document generated by Andrés & Gemini collaboration session - 28/03/2026_

@@ -9,13 +9,14 @@ Este documento (SSOT) es el que deberás "alimentar" a cualquier agente de IA (c
 ---
 
 ## 1. CONTEXTO DE NEGOCIO Y BUSINESS CASE
+
 Aplicación interna B2B para optimizar el control de caducidades en la sección de Nutrición.
 
-* **Volumen a gestionar:** +2.600 unidades/mes.
-* **Facturación del Universo:** ~25.000 €/mes (Datos Reales Enero 2026).
-* **Problema:** Revisión manual lenta (16h/mes) y pérdida de producto por caducidad no detectada (estimado 2% merma = ~500€/mes).
-* **Solución:** Digitalización híbrida (EAN + OCR) con sistema de alertas por "Semáforo". 
-* **ROI Esperado:** Recuperación estimada de 360€/mes en margen mediante acción comercial anticipada y liberación de tiempo operativo.
+- **Volumen a gestionar:** +2.600 unidades/mes.
+- **Facturación del Universo:** ~25.000 €/mes (Datos Reales Enero 2026).
+- **Problema:** Revisión manual lenta (16h/mes) y pérdida de producto por caducidad no detectada (estimado 2% merma = ~500€/mes).
+- **Solución:** Digitalización híbrida (EAN + OCR) con sistema de alertas por "Semáforo".
+- **ROI Esperado:** Recuperación estimada de 360€/mes en margen mediante acción comercial anticipada y liberación de tiempo operativo.
 
 ---
 
@@ -31,38 +32,40 @@ Aplicación interna B2B para optimizar el control de caducidades en la sección 
 
 ## 3. REQUISITOS FUNCIONALES (CORE FEATURES)
 
-* **FR-01 (Escáner Híbrido):** Integración de Google ML Kit para leer EAN y texto secuencialmente o en la misma vista de cámara.
-* **FR-02 (Multiplicador Inteligente):** Autocompletado de cantidades sugeridas según el `packSize` del catálogo maestro.
-* **FR-03 (Fallback Manual):** Formulario UI completo para introducir EAN, Nombre y Fecha (vía DatePicker) si el hardware de cámara falla.
-* **FR-04 (Gestión de Lotes):** Lógica de "Upsert". Si se escanea un EAN con una fecha que ya existe en el stock activo, se actualiza la cantidad (`Update`) en lugar de crear un duplicado (`Insert`).
-* **FR-05 (Dashboard Semáforo):** Vista principal con contadores dinámicos: 
-    * 🟢 **Verde:** (>3 meses)
-    * 🟡 **Amarillo:** (<=30 días)
-    * 🔴 **Rojo:** (<=15 días)
+- **FR-01 (Escáner Híbrido):** Integración de Google ML Kit para leer EAN y texto secuencialmente o en la misma vista de cámara.
+- **FR-02 (Multiplicador Inteligente):** Autocompletado de cantidades sugeridas según el `packSize` del catálogo maestro.
+- **FR-03 (Fallback Manual):** Formulario UI completo para introducir EAN, Nombre y Fecha (vía DatePicker) si el hardware de cámara falla.
+- **FR-04 (Gestión de Lotes):** Lógica de "Upsert". Si se escanea un EAN con una fecha que ya existe en el stock activo, se actualiza la cantidad (`Update`) en lugar de crear un duplicado (`Insert`).
+- **FR-05 (Dashboard Semáforo):** Vista principal con contadores dinámicos:
+  - 🟢 **Verde:** (>3 meses)
+  - 🟡 **Amarillo:** (<=30 días)
+  - 🔴 **Rojo:** (<=15 días)
 
 ---
 
 ## 4. ARQUITECTURA DE DATOS Y LÓGICA (DATA PIPELINE)
 
-El sistema utiliza un patrón de repositorio único *offline-first* con persistencia en Room.
+El sistema utiliza un patrón de repositorio único _offline-first_ con persistencia en Room.
 
 ### 4.1 Esquema de Base de Datos Local (Room)
 
 **Tabla 1: `ProductCatalog` (Catálogo Maestro)**
-* `ean` (String, Primary Key): Identificador único del producto.
-* `name` (String): Nombre comercial.
-* `packSize` (Int): Cantidad de unidades por pack (Default: 1).
+
+- `ean` (String, Primary Key): Identificador único del producto.
+- `name` (String): Nombre comercial.
+- `packSize` (Int): Cantidad de unidades por pack (Default: 1).
 
 **Tabla 2: `ActiveStock` (Inventario Físico)**
-* `batchId` (String, UUID, Primary Key): Identificador único del lote ingresado.
-* `ean` (String, Foreign Key -> `ProductCatalog.ean`): Relación con el catálogo.
-* `expiryDate` (Long): Timestamp en milisegundos de la fecha de caducidad.
-* `quantity` (Int): Unidades totales disponibles.
-* `status` (Int o Enum): Estado actual (0: GREEN, 1: YELLOW, 2: RED).
+
+- `batchId` (String, UUID, Primary Key): Identificador único del lote ingresado.
+- `ean` (String, Foreign Key -> `ProductCatalog.ean`): Relación con el catálogo.
+- `expiryDate` (Long): Timestamp en milisegundos de la fecha de caducidad.
+- `quantity` (Int): Unidades totales disponibles.
+- `status` (Int o Enum): Estado actual (0: GREEN, 1: YELLOW, 2: RED).
 
 ### 4.2 Reglas de Negocio Estrictas para Agentes IA
 
-1.  **Regla de Fecha (Conservadora):** Si el OCR extrae el formato `MM/YY` (ej. 07/26), la lógica de dominio **debe** transformarlo obligatoriamente al día 1 de ese mes (`01/07/2026`) para el cálculo de días restantes.
+1.  **Regla de Fecha (Conservadora - EU Retail):** Si el OCR extrae el formato `MM/YY` (ej. 07/26), la lógica de dominio **debe** transformarlo obligatoriamente al último día válido de ese mes (`31/07/2026`) para el cálculo de días restantes, usando `YearMonth.of(year, month).atEndOfMonth()`.
 2.  **Cálculo de Estado Dinámico (Semáforo):** Los estados se calculan en tiempo real mediante el `CalculateStatusUseCase` cada vez que se accede a la UI (Dashboard o Historia), asegurando una precisión del 100% basada en el reloj del sistema. No se requiere WorkManager ni actualizaciones programadas.
 
 ---
@@ -70,7 +73,9 @@ El sistema utiliza un patrón de repositorio único *offline-first* con persiste
 ## 5. ALCANCE DEL MVP vs FASE 2
 
 ### MVP v2.1.0 (Implementado y Verificado)
+
 El MVP actual incluye:
+
 - ✅ Escaneo de códigos de barras (EAN) con registro de productos
 - ✅ Gestión de lotes con fechas de caducidad
 - ✅ Sistema de semáforo (Verde/Amarillo/Rojo/Caducado) con cálculo en tiempo real
@@ -80,8 +85,11 @@ El MVP actual incluye:
 - ✅ Pipeline CI/CD con GitHub Actions
 
 ### Características Planificadas para Fase 2
+
 Las siguientes funcionalidades están definidas en FUTURE_ROADMAP.md y NO son parte del MVP:
-- 🔴 **Edición y Borrado Completo (CRUD)** - Prioridad P0: Permite modificar o eliminar lotes desde el historial
+
+- ✅ **Edición y Borrado Completo (CRUD)** - Prioridad P0: Completado (Edición + Soft Delete con Undo en lugar de dialog)
+- 🟡 **Notificaciones Push (Alertas Locales)** - Prioridad P2: Notificaciones diarias de lotes por caducar y caducados
 - 🟡 **OCR de Fechas con Cámara** - Prioridad P2: Escaneo automático de fechas de caducidad mediante Google ML Kit
 
 Nota: Las herramientas de análisis de código que verifiquen el cumplimiento de este spec deben ignorar estas características como "faltantes", ya que están documentadas explícitamente como parte de la Fase 2 y NO del MVP v2.1.0.
