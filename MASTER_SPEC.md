@@ -1,6 +1,6 @@
 Este documento (SSOT) es el que deberás "alimentar" a cualquier agente de IA (como Cursor, Windsurf o el propio Claude/Gemini) cuando llegue el momento de generar el código, ya que contiene las reglas de negocio y la arquitectura de datos sin ambigüedades.
 
-# 📄 MASTER SPEC: Smart Nutri-Stock v2.1.0 (Decathlon Gandía)
+# 📄 MASTER SPEC: Smart Nutri-Stock v2.5.0 (Decathlon Gandía)
 
 **Tipo de Documento:** PRD & Data Architecture (Fuente Única de Verdad)
 **Propósito:** Contexto base para desarrollo SDD mediante agentes de IA.
@@ -24,8 +24,8 @@ Aplicación interna B2B para optimizar el control de caducidades en la sección 
 
 1.  **Recepción:** El usuario abre la app e inicia "Escanear Producto".
 2.  **Identificación (Barcode):** Escanea el EAN. La app identifica el producto y su tamaño de pack (ej: caja x6, caja x20) consultando el catálogo.
-3.  **Captura de Fecha (OCR):** La cámara enfoca la fecha (ej: "09/26"). La IA extrae el texto mediante Google ML Kit.
-4.  **Pantalla de Confirmación:** La app muestra el producto, propone el día 1 del mes detectado (01/09/2026) y solicita confirmar la cantidad de unidades/packs ingresados.
+3.  **Captura de Fecha (OCR):** La cámara enfoca la fecha. La IA extrae el texto mediante Google ML Kit Text Recognition (Play Services version), disponible tanto en el BottomSheet de registro como en el ScannerScreen (BatchInputStep). Para formatos reducidos (ej: "09/26"), el sistema utiliza `YearMonth.atEndOfMonth()` para asignar la fecha al último día del mes.
+4.  **Pantalla de Confirmación:** La app muestra el producto, la fecha extraída por OCR y solicita confirmar la cantidad de unidades/packs ingresados.
 5.  **Guardado:** El stock pasa al inventario activo y se clasifica automáticamente en el semáforo.
 
 ---
@@ -65,23 +65,27 @@ El sistema utiliza un patrón de repositorio único _offline-first_ con persiste
 
 ### 4.2 Reglas de Negocio Estrictas para Agentes IA
 
-1.  **Regla de Fecha (Conservadora - EU Retail):** Si el OCR extrae el formato `MM/YY` (ej. 07/26), la lógica de dominio **debe** transformarlo obligatoriamente al último día válido de ese mes (`31/07/2026`) para el cálculo de días restantes, usando `YearMonth.of(year, month).atEndOfMonth()`.
+1.  **Regla de Fecha (Conservadora - EU Retail):** El sistema implementa la extracción de múltiples formatos (DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, DD/MM/YY, MM/YY, MM/YYYY, ISO YYYY-MM-DD). Si el OCR extrae el formato `MM/YY` (ej. 07/26), la lógica de dominio **debe** transformarlo obligatoriamente al último día válido de ese mes (`31/07/2026`) para el cálculo de días restantes, usando `YearMonth.of(year, month).atEndOfMonth()`.
 2.  **Cálculo de Estado Dinámico (Semáforo):** Los estados se calculan en tiempo real mediante el `CalculateStatusUseCase` cada vez que se accede a la UI (Dashboard o Historia), asegurando una precisión del 100% basada en el reloj del sistema. No se requiere WorkManager ni actualizaciones programadas.
+3.  **Unicidad de Lote (Batch Uniqueness):** Un registro en `ActiveStock` es único por la combinación de (EAN + expiryDate). 
+    - Mismo EAN + misma fecha $\rightarrow$ Sumar cantidades al registro existente.
+    - Mismo EAN + fecha diferente $\rightarrow$ Crear nuevo registro de lote.
 
 ---
 
 ## 5. ALCANCE DEL MVP vs FASE 2
 
-### MVP v2.1.0 (Implementado y Verificado)
+### MVP v2.5.0 (Implementado y Verificado)
 
 El MVP actual incluye:
 
 - ✅ Escaneo de códigos de barras (EAN) con registro de productos
+- ✅ OCR de Fechas con Cámara (Implementado en v2.5.0 via ML Kit Text Recognition)
 - ✅ Gestión de lotes con fechas de caducidad
 - ✅ Sistema de semáforo (Verde/Amarillo/Rojo/Caducado) con cálculo en tiempo real
 - ✅ Dashboard con contadores dinámicos
 - ✅ Pantalla de Historial con filtrado por estado
-- ✅ Cobertura de pruebas TDD (81+ tests unitarios)
+- ✅ Cobertura de pruebas TDD (115+ tests unitarios)
 - ✅ Pipeline CI/CD con GitHub Actions
 
 ### Características Planificadas para Fase 2
@@ -90,8 +94,10 @@ Las siguientes funcionalidades están definidas en FUTURE_ROADMAP.md y NO son pa
 
 - ✅ **Edición y Borrado Completo (CRUD)** - Prioridad P0: Completado (Edición + Soft Delete con Undo en lugar de dialog)
 - 🟡 **Notificaciones Push (Alertas Locales)** - Prioridad P2: Notificaciones diarias de lotes por caducar y caducados
-- 🟡 **OCR de Fechas con Cámara** - Prioridad P2: Escaneo automático de fechas de caducidad mediante Google ML Kit
+- ✅ **OCR de Fechas con Cámara** - Prioridad P2: Completado en v2.5.0. Escaneo automático de fechas de caducidad mediante Google ML Kit Text Recognition.
 
-Nota: Las herramientas de análisis de código que verifiquen el cumplimiento de este spec deben ignorar estas características como "faltantes", ya que están documentadas explícitamente como parte de la Fase 2 y NO del MVP v2.1.0.
+Nota: La aplicación implementa un acceso secuencial a la cámara: el escáner de códigos de barras debe liberar el hardware (`unbind()`) antes de que el módulo OCR se active, evitando conflictos de acceso al recurso.
+
+Las herramientas de análisis de código que verifiquen el cumplimiento de este spec deben ignorar estas características como "faltantes", ya que están documentadas explícitamente como parte de la Fase 2 y NO del MVP v2.1.0.
 
 ---
