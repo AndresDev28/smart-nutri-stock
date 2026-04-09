@@ -35,12 +35,25 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.platform.LocalContext
 import com.decathlon.smartnutristock.domain.model.Batch
+import com.decathlon.smartnutristock.domain.usecase.DateExtractorUseCase
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -94,6 +107,23 @@ fun ProductRegistrationBottomSheet(
             }
         }
     )
+
+    // OCR Camera state
+    var showOcrCamera by remember { mutableStateOf(false) }
+    val dateExtractorUseCase = remember { DateExtractorUseCase() }
+    val context = LocalContext.current
+
+    // Camera permission handling
+    var showPermissionDenied by remember { mutableStateOf(false) }
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            showOcrCamera = true
+        } else {
+            showPermissionDenied = true
+        }
+    }
 
     // Pre-fill logic for EDIT mode
     LaunchedEffect(existingBatch) {
@@ -190,10 +220,11 @@ fun ProductRegistrationBottomSheet(
         }
     }
 
-    Surface(
-        tonalElevation = 8.dp,
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-    ) {
+    Box {
+        Surface(
+            tonalElevation = 8.dp,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -301,23 +332,52 @@ fun ProductRegistrationBottomSheet(
                     DateTimeFormatter.ofPattern("dd/MM/yyyy").format(date)
                 } ?: ""
 
-                OutlinedTextField(
-                    value = expiryDateText,
-                    onValueChange = { },
-                    label = { Text("Fecha de vencimiento") },
-                    isError = expiryDateError != null,
-                    supportingText = expiryDateError?.let { { Text(it) } },
-                    readOnly = true,
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("expiry_date_field")
-                        .clickable { showDatePicker.value = true },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Text,
-                        imeAction = ImeAction.Done
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = expiryDateText,
+                        onValueChange = { },
+                        label = { Text("Fecha de vencimiento") },
+                        isError = expiryDateError != null,
+                        supportingText = expiryDateError?.let { { Text(it) } },
+                        readOnly = true,
+                        singleLine = true,
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("expiry_date_field")
+                            .clickable { showDatePicker.value = true },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Done
+                        )
                     )
-                )
+
+                    Spacer(modifier = Modifier.size(8.dp))
+
+                    IconButton(
+                        onClick = {
+                            val hasPermission = ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.CAMERA
+                            ) == PackageManager.PERMISSION_GRANTED
+
+                            if (hasPermission) {
+                                showOcrCamera = true
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = "Escanear Fecha",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
@@ -419,5 +479,36 @@ fun ProductRegistrationBottomSheet(
                 androidx.compose.material3.DatePicker(state = datePickerState)
             }
         }
+    }
+
+    // OCR Camera Overlay (renders on top of bottom sheet)
+    if (showOcrCamera) {
+        OcrCameraOverlay(
+            onDateDetected = { date ->
+                expiryDate = date
+                showOcrCamera = false
+            },
+            onDismiss = { showOcrCamera = false },
+            dateExtractorUseCase = dateExtractorUseCase,
+            onManualInput = {
+                showOcrCamera = false
+                showDatePicker.value = true
+            }
+        )
+    }
+
+    // Permission denied dialog
+    if (showPermissionDenied) {
+        AlertDialog(
+            onDismissRequest = { showPermissionDenied = false },
+            title = { Text("Permiso de c\u00e1mara necesario") },
+            text = { Text("El escaneo OCR requiere acceso a la c\u00e1mara. Puede ingresar la fecha manualmente tocando el campo.") },
+            confirmButton = {
+                TextButton(onClick = { showPermissionDenied = false }) {
+                    Text("Entendido")
+                }
+            }
+        )
+    }
     }
 }

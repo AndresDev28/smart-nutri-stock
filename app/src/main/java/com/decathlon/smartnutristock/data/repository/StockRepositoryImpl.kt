@@ -57,8 +57,17 @@ class StockRepositoryImpl @Inject constructor(
                     UpsertBatchResult.Success(status)
                 }
             } else {
-                // Update existing batch
-                val updatedEntity = batch.toEntity()
+                // Update existing batch — preserve existing id and createdAt, SUM quantities
+                val updatedEntity = ActiveStockEntity(
+                    id = existing.id,
+                    ean = batch.ean,
+                    quantity = existing.quantity + batch.quantity,
+                    expiryDate = batch.expiryDate,
+                    createdAt = existing.createdAt,
+                    updatedAt = Instant.now(Clock.systemUTC()),
+                    deletedAt = existing.deletedAt,
+                    actionTaken = batch.actionTaken.name
+                )
                 stockDao.update(updatedEntity)
                 UpsertBatchResult.Success(status)
             }
@@ -120,15 +129,18 @@ class StockRepositoryImpl @Inject constructor(
         }
     }
 
+    @Transaction
     override suspend fun updateBatch(batch: Batch): Int {
         return try {
             val clock = Clock.systemUTC()
             val status = calculateStatusUseCase(batch.expiryDate, clock)
 
-            val existing = stockDao.findByEanAndExpiryDate(batch.ean, batch.expiryDate)
+            val existing = stockDao.findById(batch.id)
             if (existing == null) {
-                0 // Batch not found
-            } else {
+                return 0
+            }
+
+            if (existing.expiryDate == batch.expiryDate) {
                 val updatedEntity = ActiveStockEntity(
                     id = existing.id,
                     ean = batch.ean,
@@ -140,7 +152,37 @@ class StockRepositoryImpl @Inject constructor(
                     actionTaken = batch.actionTaken.name
                 )
                 stockDao.update(updatedEntity)
+            } else {
+                stockDao.deleteById(existing.id)
+
+                val targetExisting = stockDao.findByEanAndExpiryDate(batch.ean, batch.expiryDate)
+                if (targetExisting != null) {
+                    val mergedEntity = ActiveStockEntity(
+                        id = targetExisting.id,
+                        ean = batch.ean,
+                        quantity = targetExisting.quantity + batch.quantity,
+                        expiryDate = batch.expiryDate,
+                        createdAt = targetExisting.createdAt,
+                        updatedAt = Instant.now(clock),
+                        deletedAt = targetExisting.deletedAt,
+                        actionTaken = batch.actionTaken.name
+                    )
+                    stockDao.update(mergedEntity)
+                } else {
+                    val newEntity = ActiveStockEntity(
+                        id = batch.id,
+                        ean = batch.ean,
+                        quantity = batch.quantity,
+                        expiryDate = batch.expiryDate,
+                        createdAt = existing.createdAt,
+                        updatedAt = Instant.now(clock),
+                        deletedAt = null,
+                        actionTaken = batch.actionTaken.name
+                    )
+                    stockDao.insert(newEntity)
+                }
             }
+            1
         } catch (e: Exception) {
             0
         }
