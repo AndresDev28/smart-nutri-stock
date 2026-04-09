@@ -107,6 +107,7 @@ dependencies {
     // ML Kit (Barcode Scanning & OCR)
     implementation("com.google.mlkit:barcode-scanning:17.2.0")
     implementation("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.0")
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
 
     // CameraX
     implementation("androidx.camera:camera-camera2:1.3.1")

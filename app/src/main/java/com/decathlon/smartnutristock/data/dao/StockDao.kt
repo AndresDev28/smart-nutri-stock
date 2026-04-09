@@ -152,4 +152,10 @@ interface StockDao {
      */
     @Query("UPDATE active_stocks SET actionTaken = :action WHERE id = :batchId")
     suspend fun updateAction(batchId: String, action: String): Int
+
+    @Query("SELECT * FROM active_stocks WHERE id = :id LIMIT 1")
+    suspend fun findById(id: String): ActiveStockEntity?
+
+    @Query("DELETE FROM active_stocks WHERE id = :id")
+    suspend fun deleteById(id: String): Int
 }

@@ -1,7 +1,9 @@
 package com.decathlon.smartnutristock.presentation.ui.scanner
 
 import android.Manifest
-import androidx.camera.core.ImageAnalysis
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.camera.core.ImageProxy
 import androidx.camera.view.LifecycleCameraController
@@ -20,6 +22,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -28,8 +32,9 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.camera.core.ExperimentalGetImage
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -46,7 +51,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -60,12 +64,14 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import android.util.Log
 import kotlinx.coroutines.launch
+import com.decathlon.smartnutristock.domain.usecase.DateExtractorUseCase
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -102,6 +108,23 @@ fun ScannerScreen(
     // Quantity input state (local)
     var quantityInput by remember { mutableStateOf("") }
     var quantityError by remember { mutableStateOf<String?>(null) }
+
+    // OCR state
+    var showOcrCamera by remember { mutableStateOf(false) }
+    var isCameraReleased by remember { mutableStateOf(false) }
+    val dateExtractorUseCase = remember { DateExtractorUseCase() }
+
+    // Camera permission for OCR
+    var showPermissionDenied by remember { mutableStateOf(false) }
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            showOcrCamera = true
+        } else {
+            showPermissionDenied = true
+        }
+    }
 
     // Camera controller
     val cameraController = remember {
@@ -168,6 +191,25 @@ fun ScannerScreen(
                 barcodeScanner = barcodeScanner,
                 viewModel = viewModel
             )
+        }
+    }
+
+    // Release/rebind camera hardware when OCR overlay opens/closes
+    LaunchedEffect(showOcrCamera) {
+        if (showOcrCamera) {
+            cameraController.unbind()
+            isCameraReleased = true
+        } else {
+            isCameraReleased = false
+            cameraController.bindToLifecycle(lifecycleOwner)
+            cameraController.setImageAnalysisAnalyzer(executor) { imageProxy ->
+                Log.d("Scanner", "Procesando frame...")
+                processImageProxy(
+                    imageProxy = imageProxy,
+                    barcodeScanner = barcodeScanner,
+                    viewModel = viewModel
+                )
+            }
         }
     }
 
@@ -286,12 +328,11 @@ fun ScannerScreen(
     val productInfoVal = currentProductInfo
 
     // DatePickerDialog for expiry date
-    if (batchInputState is BatchInputStep.SelectExpiryDate && productInfoVal != null) {
+    if (batchInputState is BatchInputStep.SelectExpiryDate && productInfoVal != null && !showOcrCamera) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = System.currentTimeMillis(),
             selectableDates = object : androidx.compose.material3.SelectableDates {
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                    // Only allow future dates (no past dates for expiry)
                     return utcTimeMillis >= System.currentTimeMillis()
                 }
             }
@@ -312,8 +353,31 @@ fun ScannerScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.onCancelBatchInput() }) {
-                    Text("Cancelar")
+                Row {
+                    IconButton(
+                        onClick = {
+                            val hasPermission = ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.CAMERA
+                            ) == PackageManager.PERMISSION_GRANTED
+
+                            if (hasPermission) {
+                                showOcrCamera = true
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = "Escanear Fecha",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    TextButton(onClick = { viewModel.onCancelBatchInput() }) {
+                        Text("Cancelar")
+                    }
                 }
             }
         ) {
@@ -322,6 +386,36 @@ fun ScannerScreen(
                 modifier = Modifier.testTag("date_picker")
             )
         }
+    }
+
+    // OCR Camera Overlay for SelectExpiryDate step (gated on camera release)
+    if (showOcrCamera && isCameraReleased && batchInputState is BatchInputStep.SelectExpiryDate) {
+        OcrCameraOverlay(
+            onDateDetected = { date: LocalDate ->
+                val instant = date.atStartOfDay(ZoneId.systemDefault()).toInstant()
+                viewModel.onExpiryDateSelected(instant)
+                showOcrCamera = false
+            },
+            onDismiss = { showOcrCamera = false },
+            dateExtractorUseCase = dateExtractorUseCase,
+            onManualInput = {
+                showOcrCamera = false
+            }
+        )
+    }
+
+    // Permission denied dialog
+    if (showPermissionDenied) {
+        AlertDialog(
+            onDismissRequest = { showPermissionDenied = false },
+            title = { Text("Permiso de cámara necesario") },
+            text = { Text("El escaneo OCR requiere acceso a la cámara. Puede ingresar la fecha manualmente.") },
+            confirmButton = {
+                TextButton(onClick = { showPermissionDenied = false }) {
+                    Text("Entendido")
+                }
+            }
+        )
     }
 
     // Quantity Input Dialog

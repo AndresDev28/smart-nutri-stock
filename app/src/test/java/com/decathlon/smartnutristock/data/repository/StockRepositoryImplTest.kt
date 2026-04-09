@@ -357,12 +357,8 @@ class StockRepositoryImplTest {
         assertTrue(result is UpsertBatchResult.Error)
     }
 
-    /**
-     * Test updateBatch updates existing batch.
-     */
     @Test
-    fun `updateBatch updates existing batch and recalculates status`() = runTest {
-        // Given
+    fun `updateBatch updates existing batch when expiry date unchanged`() = runTest {
         val batch = Batch(
             id = "batch-1",
             ean = "8435408475366",
@@ -380,14 +376,12 @@ class StockRepositoryImplTest {
             updatedAt = testNow
         )
 
-        coEvery { stockDao.findByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns existingEntity
+        coEvery { stockDao.findById(batch.id) } returns existingEntity
         every { calculateStatusUseCase(batch.expiryDate, any()) } returns SemaphoreStatus.GREEN
         coEvery { stockDao.update(any()) } returns 1
 
-        // When
         val result = repository.updateBatch(batch)
 
-        // Then
         assertEquals(1, result)
         coVerify { stockDao.update(match { entity ->
             entity.id == "batch-1" &&
@@ -395,6 +389,164 @@ class StockRepositoryImplTest {
             entity.quantity == 20 &&
             entity.expiryDate == Instant.parse("2026-07-01T00:00:00Z")
         }) }
+    }
+
+    @Test
+    fun `updateBatch deletes old and inserts new when expiry date changes`() = runTest {
+        val oldDate = Instant.parse("2026-07-01T00:00:00Z")
+        val newDate = Instant.parse("2026-12-01T00:00:00Z")
+
+        val batch = Batch(
+            id = "batch-1",
+            ean = "8435408475366",
+            quantity = 20,
+            expiryDate = newDate,
+            status = SemaphoreStatus.GREEN
+        )
+
+        val existingEntity = ActiveStockEntity(
+            id = "batch-1",
+            ean = batch.ean,
+            quantity = 10,
+            expiryDate = oldDate,
+            createdAt = testNow,
+            updatedAt = testNow
+        )
+
+        coEvery { stockDao.findById(batch.id) } returns existingEntity
+        every { calculateStatusUseCase(newDate, any()) } returns SemaphoreStatus.GREEN
+        coEvery { stockDao.deleteById("batch-1") } returns 1
+        coEvery { stockDao.findByEanAndExpiryDate(batch.ean, newDate) } returns null
+        coEvery { stockDao.insert(any()) } returns 1L
+
+        val result = repository.updateBatch(batch)
+
+        assertEquals(1, result)
+        coVerify { stockDao.deleteById("batch-1") }
+        coVerify { stockDao.insert(match { entity ->
+            entity.id == "batch-1" &&
+            entity.ean == "8435408475366" &&
+            entity.quantity == 20 &&
+            entity.expiryDate == newDate
+        }) }
+    }
+
+    @Test
+    fun `updateBatch merges quantities when new date has existing batch`() = runTest {
+        val oldDate = Instant.parse("2026-07-01T00:00:00Z")
+        val newDate = Instant.parse("2026-12-01T00:00:00Z")
+
+        val batch = Batch(
+            id = "batch-1",
+            ean = "8435408475366",
+            quantity = 5,
+            expiryDate = newDate,
+            status = SemaphoreStatus.GREEN
+        )
+
+        val existingEntity = ActiveStockEntity(
+            id = "batch-1",
+            ean = batch.ean,
+            quantity = 10,
+            expiryDate = oldDate,
+            createdAt = testNow,
+            updatedAt = testNow
+        )
+
+        val targetExisting = ActiveStockEntity(
+            id = "batch-2",
+            ean = batch.ean,
+            quantity = 15,
+            expiryDate = newDate,
+            createdAt = testNow,
+            updatedAt = testNow
+        )
+
+        coEvery { stockDao.findById(batch.id) } returns existingEntity
+        every { calculateStatusUseCase(newDate, any()) } returns SemaphoreStatus.GREEN
+        coEvery { stockDao.deleteById("batch-1") } returns 1
+        coEvery { stockDao.findByEanAndExpiryDate(batch.ean, newDate) } returns targetExisting
+        coEvery { stockDao.update(any()) } returns 1
+
+        val result = repository.updateBatch(batch)
+
+        assertEquals(1, result)
+        coVerify { stockDao.deleteById("batch-1") }
+        coVerify { stockDao.update(match { entity ->
+            entity.id == "batch-2" &&
+            entity.quantity == 20 &&
+            entity.expiryDate == newDate
+        }) }
+    }
+
+    @Test
+    fun `upsert sums quantities when same EAN and same expiry date`() = runTest {
+        val expiryDate = Instant.parse("2026-07-01T00:00:00Z")
+
+        val existingEntity = ActiveStockEntity(
+            id = "existing-uuid",
+            ean = "8435408475366",
+            quantity = 5,
+            expiryDate = expiryDate,
+            createdAt = testNow.minusSeconds(1000),
+            updatedAt = testNow
+        )
+
+        val newBatch = Batch(
+            id = "new-uuid-from-scanner",
+            ean = "8435408475366",
+            quantity = 10,
+            expiryDate = expiryDate,
+            status = SemaphoreStatus.GREEN
+        )
+
+        coEvery { stockDao.findByEanAndExpiryDate(newBatch.ean, newBatch.expiryDate) } returns existingEntity
+        every { calculateStatusUseCase(newBatch.expiryDate, any()) } returns SemaphoreStatus.GREEN
+        coEvery { stockDao.update(any()) } returns 1
+
+        val result = repository.upsert(newBatch)
+
+        assertTrue(result is UpsertBatchResult.Success)
+        coVerify { stockDao.update(match { entity ->
+            entity.id == "existing-uuid" &&
+            entity.quantity == 15 &&
+            entity.createdAt == testNow.minusSeconds(1000)
+        }) }
+        coVerify(exactly = 0) { stockDao.insert(any()) }
+    }
+
+    @Test
+    fun `upsert creates new record when same EAN but different expiry date`() = runTest {
+        val date1 = Instant.parse("2026-07-01T00:00:00Z")
+        val date2 = Instant.parse("2026-12-01T00:00:00Z")
+
+        val batch1 = Batch(
+            id = "batch-1",
+            ean = "8435408475366",
+            quantity = 5,
+            expiryDate = date1,
+            status = SemaphoreStatus.GREEN
+        )
+        val batch2 = Batch(
+            id = "batch-2",
+            ean = "8435408475366",
+            quantity = 10,
+            expiryDate = date2,
+            status = SemaphoreStatus.GREEN
+        )
+
+        coEvery { stockDao.findByEanAndExpiryDate(batch1.ean, batch1.expiryDate) } returns null
+        coEvery { stockDao.findByEanAndExpiryDate(batch2.ean, batch2.expiryDate) } returns null
+        every { calculateStatusUseCase(any(), any()) } returns SemaphoreStatus.GREEN
+        coEvery { stockDao.insert(any()) } returns 1L
+
+        val result1 = repository.upsert(batch1)
+        val result2 = repository.upsert(batch2)
+
+        assertTrue(result1 is UpsertBatchResult.Success)
+        assertTrue(result2 is UpsertBatchResult.Success)
+        coVerify(exactly = 2) { stockDao.insert(any()) }
+        coVerify(exactly = 0) { stockDao.update(any()) }
     }
 
     /**

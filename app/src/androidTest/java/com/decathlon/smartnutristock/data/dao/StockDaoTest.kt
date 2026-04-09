@@ -512,4 +512,124 @@ class StockDaoTest {
         assertThat(result[0].productName).isNull()
         assertThat(result[0].packSize).isNull()
     }
+
+    @Test
+    fun findById_returns_batch_when_exists() = runTest {
+        val stock = ActiveStockEntity("batch-1", "8435408475366", 10, testNow, testNow, testNow)
+        stockDao.insert(stock)
+
+        val result = stockDao.findById("batch-1")
+
+        assertThat(result).isNotNull()
+        assertThat(result!!.id).isEqualTo("batch-1")
+        assertThat(result.ean).isEqualTo("8435408475366")
+        assertThat(result.quantity).isEqualTo(10)
+    }
+
+    @Test
+    fun findById_returns_null_when_not_exists() = runTest {
+        val result = stockDao.findById("non-existent")
+
+        assertThat(result).isNull()
+    }
+
+    @Test
+    fun deleteById_deletes_batch() = runTest {
+        stockDao.insert(ActiveStockEntity("batch-1", "8435408475366", 10, testNow, testNow, testNow))
+
+        val count = stockDao.deleteById("batch-1")
+
+        assertThat(count).isEqualTo(1)
+        assertThat(stockDao.findById("batch-1")).isNull()
+    }
+
+    @Test
+    fun deleteById_returns_0_when_not_found() = runTest {
+        val count = stockDao.deleteById("non-existent")
+
+        assertThat(count).isEqualTo(0)
+    }
+
+    @Test
+    fun findByEanAndExpiryDate_returns_correct_record_when_multiple_dates_for_same_ean() = runTest {
+        val expiry1 = testNow
+        val expiry2 = testNow.plusSeconds(86400)
+
+        stockDao.insert(ActiveStockEntity("batch-1", "8435408475366", 10, expiry1, testNow, testNow))
+        stockDao.insert(ActiveStockEntity("batch-2", "8435408475366", 20, expiry2, testNow, testNow))
+
+        val result1 = stockDao.findByEanAndExpiryDate("8435408475366", expiry1)
+        val result2 = stockDao.findByEanAndExpiryDate("8435408475366", expiry2)
+
+        assertThat(result1).isNotNull()
+        assertThat(result1!!.id).isEqualTo("batch-1")
+        assertThat(result1.quantity).isEqualTo(10)
+
+        assertThat(result2).isNotNull()
+        assertThat(result2!!.id).isEqualTo("batch-2")
+        assertThat(result2.quantity).isEqualTo(20)
+    }
+
+    @Test
+    fun findByEan_returns_all_records_for_ean_with_multiple_dates() = runTest {
+        val expiry1 = testNow
+        val expiry2 = testNow.plusSeconds(86400)
+        val expiry3 = testNow.plusSeconds(172800)
+
+        stockDao.insert(ActiveStockEntity("batch-1", "8435408475366", 10, expiry1, testNow, testNow))
+        stockDao.insert(ActiveStockEntity("batch-2", "8435408475366", 20, expiry2, testNow, testNow))
+        stockDao.insert(ActiveStockEntity("batch-3", "8435408475366", 15, expiry3, testNow, testNow))
+
+        val results = stockDao.findByEan("8435408475366")
+
+        assertThat(results).hasSize(3)
+        assertThat(results.map { it.id }).containsExactly("batch-1", "batch-2", "batch-3")
+    }
+
+    @Test
+    fun update_preserves_id_and_createdAt() = runTest {
+        val original = ActiveStockEntity(
+            id = "batch-1",
+            ean = "8435408475366",
+            quantity = 10,
+            expiryDate = testNow,
+            createdAt = testNow,
+            updatedAt = testNow
+        )
+        stockDao.insert(original)
+
+        val updated = original.copy(
+            quantity = 25,
+            updatedAt = testNow.plusSeconds(3600)
+        )
+        stockDao.update(updated)
+
+        val result = stockDao.findByEanAndExpiryDate("8435408475366", testNow)
+        assertThat(result).isNotNull()
+        assertThat(result!!.id).isEqualTo("batch-1")
+        assertThat(result.createdAt).isEqualTo(testNow)
+        assertThat(result.quantity).isEqualTo(25)
+        assertThat(result.updatedAt).isEqualTo(testNow.plusSeconds(3600))
+    }
+
+    @Test
+    fun update_with_non_existent_id_returns_0_and_does_not_affect_existing_records() = runTest {
+        stockDao.insert(ActiveStockEntity("batch-1", "8435408475366", 10, testNow, testNow, testNow))
+
+        val phantomUpdate = ActiveStockEntity(
+            id = "non-existent-id",
+            ean = "8435408475366",
+            quantity = 999,
+            expiryDate = testNow,
+            createdAt = testNow,
+            updatedAt = testNow
+        )
+        val rowsAffected = stockDao.update(phantomUpdate)
+
+        assertThat(rowsAffected).isEqualTo(0)
+
+        val original = stockDao.findByEanAndExpiryDate("8435408475366", testNow)
+        assertThat(original).isNotNull()
+        assertThat(original!!.quantity).isEqualTo(10)
+    }
 }

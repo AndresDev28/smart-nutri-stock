@@ -241,4 +241,84 @@ class UpsertStockUseCaseTest {
 
         coVerify { mockRepository.upsert(batch) }
     }
+
+    // TEST 11: Same EAN + same expiry date → quantities should sum (repository handles it)
+    @Test
+    fun `upsert same EAN with same date should delegate to repository for quantity merge`() = runTest {
+        val ean = "8435489901234"
+        val expiryDate = Instant.now()
+        val originalBatch = Batch(
+            id = "batch-existing",
+            ean = ean,
+            quantity = 5,
+            expiryDate = expiryDate,
+            status = SemaphoreStatus.GREEN
+        )
+        val newBatch = Batch(
+            id = "batch-new-uuid",
+            ean = ean,
+            quantity = 10,
+            expiryDate = expiryDate,
+            status = SemaphoreStatus.GREEN
+        )
+
+        coEvery { mockRepository.upsert(newBatch) } returns UpsertBatchResult.Success(SemaphoreStatus.GREEN)
+
+        val result = useCase.upsert(newBatch)
+
+        assert(result is UpsertBatchResult.Success)
+        coVerify { mockRepository.upsert(newBatch) }
+    }
+
+    // TEST 12: Same EAN + different expiry date → creates new record
+    @Test
+    fun `upsert same EAN with different date should create new record`() = runTest {
+        val ean = "8435489901234"
+        val expiryDate1 = Instant.now()
+        val expiryDate2 = Instant.now().plusSeconds(86400)
+        val batch1 = Batch(
+            id = "batch-1",
+            ean = ean,
+            quantity = 5,
+            expiryDate = expiryDate1,
+            status = SemaphoreStatus.GREEN
+        )
+        val batch2 = Batch(
+            id = "batch-2",
+            ean = ean,
+            quantity = 10,
+            expiryDate = expiryDate2,
+            status = SemaphoreStatus.GREEN
+        )
+
+        coEvery { mockRepository.upsert(batch1) } returns UpsertBatchResult.Success(SemaphoreStatus.GREEN)
+        coEvery { mockRepository.upsert(batch2) } returns UpsertBatchResult.Success(SemaphoreStatus.GREEN)
+
+        val result1 = useCase.upsert(batch1)
+        val result2 = useCase.upsert(batch2)
+
+        assert(result1 is UpsertBatchResult.Success)
+        assert(result2 is UpsertBatchResult.Success)
+        coVerify { mockRepository.upsert(batch1) }
+        coVerify { mockRepository.upsert(batch2) }
+    }
+
+    // TEST 13: New EAN → creates new record
+    @Test
+    fun `upsert new EAN should create new record`() = runTest {
+        val batch = Batch(
+            id = "batch-new",
+            ean = "9999999999999",
+            quantity = 3,
+            expiryDate = Instant.now(),
+            status = SemaphoreStatus.GREEN
+        )
+
+        coEvery { mockRepository.upsert(batch) } returns UpsertBatchResult.Success(SemaphoreStatus.GREEN)
+
+        val result = useCase.upsert(batch)
+
+        assert(result is UpsertBatchResult.Success)
+        coVerify { mockRepository.upsert(batch) }
+    }
 }
