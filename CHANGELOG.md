@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.4.0...v2.5.0) (2026-04-09)
+
+
+### Features
+
+* implement sequential ML Kit OCR scanning with proper CameraX lifecycle handoff and batch separation logic ([f2bce32](https://github.com/AndresDev28/smart-nutri-stock/commit/f2bce321d65d3948668b360ec868d4ad63c0efb5))
+
 ## [2.4.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.3.0...v2.4.0) (2026-04-08)
 
 
