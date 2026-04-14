@@ -9,51 +9,67 @@
 [![Architecture](https://img.shields.io/badge/Architecture-Clean--Arch-blue)](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
 [![CI/CD](https://img.shields.io/badge/CI--CD-GitHub--Actions-2088FF?logo=github-actions&logoColor=white)](https://github.com/features/actions)
 
-**Smart Nutri-Stock** is a high-performance, B2B native Android solution specifically engineered for **Decathlon Gandía**. It streamlines the management of food expiry dates, eliminating manual errors and optimizing stock rotation through intelligent automation.
+**Smart Nutri-Stock** es una solución nativa de alto rendimiento diseñada para la optimización de inventario perecedero. Nacida en el corazón de **Decathlon Gandía**, esta herramienta elimina el error humano y maximiza la productividad mediante la automatización inteligente del control de caducidades.
 
 ---
 
-## 🎯 The Vision
+## 💡 Origen y Propósito: El Valor de la Subsidiariedad
 
-Retail efficiency meets food sustainability. By leveraging **Google ML Kit**, this application transforms the traditional "daily check" into a seamless, high-speed digital process, ensuring that no product expires on the shelf and reducing food waste to near-zero.
+Esta aplicación nace de una necesidad real detectada en el terreno: la gestión ineficiente del stock de Nutrición. El proyecto se basa en el **Principio de Subsidiariedad**, que defiende que las soluciones más efectivas son aquellas ideadas por quienes están más cerca de la acción.
+
+Al empoderar al colaborador de tienda con tecnología avanzada, Smart Nutri-Stock busca:
+
+- **Minimizar la Merma y el "Decot"**: Identificación proactiva de productos antes de su vencimiento.
+- **Maximizar Ventas**: Implementación ágil de flujos de descuento (-20%) para asegurar la rotación.
+- **Productividad Real**: Ganancia de tiempo para el equipo, permitiendo un enfoque total en el asesoramiento al deportista.
+
+---
 
 ## ✨ Key Features (v2.5.0)
 
-- **High-Speed Scanning**: Native barcode recognition for rapid stock intake.
-- **OCR Date Scanning**: Automated expiry date extraction via camera using Google ML Kit Text Recognition.
-- **Smart Semaphore System**: Real-time dynamic calculation of product status:
-  - 🔴 **Expired/Today**: Critical priority.
-  - 🟡 **Warning**: Expiring within 3 days.
-  - 🟢 **Safe**: Controlled rotation.
-- **Real-Time Dashboard**: Comprehensive stock health overview at a glance.
-- **Advanced History**: Filterable ledger of all registered batches with dynamic status updates.
-- **Rugged Hardware Support**: Fully optimized for **Samsung Galaxy XCover7** enterprise devices.
+- **OCR Date Scanning**: Extracción automatizada de fechas de vencimiento mediante visión artificial (**Google ML Kit**), con soporte para normativa europea y años bisiestos.
+- **High-Speed Barcode Recognition**: Escaneo masivo de productos para entradas de stock ultra rápidas.
+- **Smart Semaphore System**: Cálculo dinámico del estado del lote:
+  - 🔴 **Expirado/Hoy**: Prioridad crítica de retirada.
+  - 🟡 **Próximo a Vencer**: Alerta de acción comercial (1-3 días).
+  - 🟢 **Seguro**: Rotación controlada.
+- **Workflow de Acciones**: Gestión con un solo toque (Aplicar descuento, Retirar, Eliminar).
+- **Reporting Nativo**: Exportación de auditorías en **PDF con código de colores** y **CSV (RFC 4180)**.
+- **Rugged Hardware Support**: Optimizado específicamente para dispositivos **Samsung Galaxy XCover7**.
+
+---
 
 ## 🛠 Tech Stack
 
 - **Language**: Kotlin + Coroutines & Flow.
-- **UI Framework**: Jetpack Compose (Declarative UI).
+- **UI Framework**: Jetpack Compose (Material 3).
 - **Local Storage**: Room Persistence Library (Offline-first).
 - **Intelligence**: Google ML Kit (Barcode & Text Recognition API).
-- **Dependency Injection**: Koin / Hilt.
-- **Testing**: 115+ Unit & Integration Tests (TDD approach).
+- **Dependency Injection**: Hilt.
+- **Testing**: 130+ Unit & Integration Tests (TDD approach).
 
 ## 🏗 Architecture
 
-Built upon **Clean Architecture** principles to ensure scalability and maintainability:
+Implementación estricta de **Clean Architecture** para garantizar escalabilidad hacia todas las tiendas de **Decathlon España**:
 
-- **Domain Layer**: Pure Kotlin logic with high-coverage use cases.
-- **Data Layer**: Repository pattern with local data sources.
-- **Presentation Layer**: MVVM pattern with state-driven UI.
-
-## 🚀 Phase 2 Roadmap (Fase 2)
-
-- [x] **Full CRUD**: Edit and delete existing batches from history.
-- [x] **Workflow Actions**: One-tap "Discount Applied" (-20%) or "Removed" flags.
-- [x] **OCR Expiry Scanning**: Fully automated date extraction via computer vision (v2.5.0).
-- [ ] **Cloud Sync**: Multi-device synchronization via Supabase/Firebase.
-- [x] **Reporting**: Automated CSV/PDF export for inventory management.
+- **Domain Layer**: Lógica de negocio pura y casos de uso de alta cobertura.
+- **Data Layer**: Patrón Repository con fuentes de datos locales y lógica de persistencia robusta.
+- **Presentation Layer**: Patrón MVVM con gestión de estado reactiva (StateFlow).
 
 ---
 
-_Developed with ❤️ for Decathlon Gandía - 2026_
+## 🚀 Phase 2 Roadmap (Fase de Escalamiento)
+
+- [x] **Full CRUD**: Edición y borrado completo de lotes.
+- [x] **Workflow Actions**: Botones de acción dinámica en tarjetas de producto.
+- [x] **Reporting**: Exportación automatizada a PDF y CSV.
+- [x] **OCR Expiry Scanning**: Automatización total de la entrada de fechas (v2.5.0).
+- [ ] **Local Push Notifications**: Alertas proactivas diarias mediante WorkManager.
+- [ ] **Cloud Sync**: Sincronización multi-dispositivo en colaboración con Servicios Centrales.
+
+---
+
+<p align="center">
+  Desarrollado con 💙 por <a href="https://github.com/AndresDev28"><b>AndresDev</b></a> <br>
+  <b>Decathlon Gandía</b> - 2026
+</p>
