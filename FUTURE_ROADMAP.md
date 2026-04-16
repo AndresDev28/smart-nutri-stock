@@ -94,32 +94,54 @@ And Delete button becomes visible
 
 ---
 
-### 🟡 MEDIA (5): Notificaciones Push (Alertas Locales)
-### 🟡 MEDIA (5): Notificaciones Push (Alertas Locales)
+### ✅ COMPLETADA: Notificaciones Push (Alertas Locales)
 
 **Priority**: P2 - Medium
 **Effort**: Medium (3-5 days)
-**Dependencies**: Configuración de WorkManager y permisos (POST_NOTIFICATIONS)
+**Completed**: 2026-04-16
+**Version**: v2.6.0
+**Status**: ✅ Implemented with Hilt + WorkManager integration
 
 #### Description
 
 Local push notifications to alert personnel about products entering "Yellow" (expiring soon) or "Red" (expired) states. This transforms the app from a passive ledger into an active alerting system.
 
-#### Requirements
+#### Implemented Requirements
 
-- [ ] Daily background check via WorkManager for status changes
-- [ ] Grouped push notifications (e.g., "Tienes 3 lotes por caducar pronto")
-- [ ] Deep linking: Tapping notification opens History filtered by the relevant state
-- [ ] Notification channels: "Alertas Críticas" (Rojo) y "Avisos Preventivos" (Amarillo)
-- [ ] Request Android 13+ Notification Permissions gracefully
+- ✅ Daily background check via WorkManager for status changes (scheduled at 06:00 AM)
+- ✅ Grouped push notifications (e.g., "Tienes 3 lotes por caducar pronto")
+- ✅ Deep linking: Tapping notification opens History filtered by the relevant state
+- ✅ Notification channels: "Alertas Críticas" (Rojo) y "Avisos Preventivos" (Amarillo)
+- ✅ Request Android 13+ Notification Permissions gracefully via in-app request
 
-#### Technical Approach
+#### Technical Implementation
 
-- Add `Worker` for daily scans of `ActiveStockEntity` against current date
-- Use `NotificationManagerCompat` and explicit Intents for deep linking
-- Make sure to consider battery optimization constraints
+- ✅ `StatusCheckWorker`: Daily scans of `ActiveStockEntity` against current date
+- ✅ Hilt + WorkManager integration: `@HiltWorker` with proper dependency injection
+- ✅ `NotificationHelper`: Native NotificationManager (not compat) for reliability
+- ✅ `NotificationChannel` registration: Pre-registered before any builder instantiation
+- ✅ Smart enqueue policy: REPLACE only if work is FAILED/CANCELLED, otherwise KEEP
+- ✅ Deep linking: `Intent(this, MainActivity::class.java)` with action extras
+- ✅ Grouped notifications: `NotificationCompat.InboxStyle` for multiple batches
+- ✅ Battery optimization workarounds: EXPONENTIAL backoff, documented for OEM devices
+- ✅ Debug test button: "TEST PUSH (DEBUG)" on DashboardScreen for isolated testing
 
-#### Acceptance Criteria
+#### Challenges Overcome
+
+- ✅ **Silent Notification Drop**: Fixed by using native NotificationManager and valid monochromatic vector icons
+- ✅ **Hilt Worker Factory Failure**: Upgraded to hilt-work:1.2.0 and added AndroidManifest `tools:node="remove"`
+- ✅ **Xiaomi/HyperOS Battery Optimization**: Created debug bypass button and documented workarounds
+- ✅ **Auto Backup Phantom State**: Disabled `allowBackup="false"` for clean testing
+
+#### Test Coverage
+
+- ✅ Manual device testing PASSED on Samsung XCover7
+- ✅ Notification permission request flow verified
+- ✅ Notification channel registration verified
+- ✅ Deep link navigation verified
+- ✅ WorkManager scheduling verified via Background Task Inspector
+
+#### Acceptance Criteria (VERIFIED ✅)
 
 ```gherkin
 Given there are 2 yellow batches in the database

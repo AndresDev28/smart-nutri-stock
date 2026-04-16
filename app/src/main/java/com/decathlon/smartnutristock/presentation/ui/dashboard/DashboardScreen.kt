@@ -2,6 +2,7 @@ package com.decathlon.smartnutristock.presentation.ui.dashboard
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -18,22 +19,31 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,9 +52,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.launch
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
+import com.decathlon.smartnutristock.presentation.permission.NotificationPermissionHandler
+import com.decathlon.smartnutristock.presentation.permission.NotificationPermissionHandler.RationaleDialogState
+import com.decathlon.smartnutristock.presentation.permission.NotificationPermissionHandler.RationaleDialogState.NotShowing
+import com.decathlon.smartnutristock.presentation.permission.NotificationPermissionHandler.RationaleDialogState.Showing
+import com.decathlon.smartnutristock.presentation.permission.NotificationRationaleDialog
+import com.decathlon.smartnutristock.R
 
 /**
  * Dashboard Screen with Semaphore Counters.
@@ -90,15 +107,92 @@ fun DashboardScreen(
         }
     }
 
+    // Check notification permission (Android 13+)
+    val notificationPermissionRequired = remember {
+        NotificationPermissionHandler.isPermissionRequired()
+    }
+
+    val notificationPermissionGranted = remember {
+        NotificationPermissionHandler.checkPermission(context)
+    }
+
+    // Notification permission launcher (only used on Android 13+)
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permission granted - worker will run automatically
+            // Note: Worker is already initialized in SmartNutriStockApp.onCreate()
+            // No action needed here
+        }
+        // If denied, user can request again or be directed to settings
+    }
+
+    // Rationale dialog state
+    var rationaleDialogState by remember { mutableStateOf<RationaleDialogState>(NotShowing) }
+
+    // Snackbar host state
+    val snackbarHostState = remember { SnackbarHostState() }
+
     // Collect UI state from ViewModel
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
         // Auto-refresh when screen comes into view
         viewModel.refresh()
+
+        // Handle notification permission request (Android 13+ only)
+        if (notificationPermissionRequired && !notificationPermissionGranted) {
+            // First time: show rationale dialog before requesting
+            rationaleDialogState = Showing(
+                onConfirm = {
+                    rationaleDialogState = NotShowing
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                },
+                onDismiss = {
+                    rationaleDialogState = NotShowing
+                }
+            )
+        }
     }
 
-    Scaffold { padding ->
+    // Show snackbar if permission was permanently denied
+    // This runs after permission check, when user has denied with "Don't ask again"
+    LaunchedEffect(notificationPermissionGranted) {
+        if (notificationPermissionRequired &&
+            !notificationPermissionGranted &&
+            rationaleDialogState == NotShowing) {
+            // Check if this is a permanent denial (user checked "Don't ask again")
+            val activity = context as? android.app.Activity
+            if (activity != null && NotificationPermissionHandler.isPermanentlyDenied(activity)) {
+                val result = snackbarHostState.showSnackbar(
+                    message = context.getString(R.string.notification_permission_denied),
+                    actionLabel = context.getString(R.string.notification_permission_settings),
+                    duration = SnackbarDuration.Indefinite
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    // Open app settings
+                    val settingsIntent = NotificationPermissionHandler.createSettingsIntent(context)
+                    context.startActivity(settingsIntent)
+                }
+            }
+        }
+    }
+
+    // Show rationale dialog if needed
+    if (rationaleDialogState is Showing) {
+        val showingState = rationaleDialogState as Showing
+        NotificationRationaleDialog(
+            onConfirm = showingState.onConfirm,
+            onDismiss = showingState.onDismiss
+        )
+    }
+
+    Scaffold(
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
+        }
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -147,7 +241,9 @@ private fun DashboardContent(
     cameraPermissionLauncher: androidx.activity.result.ActivityResultLauncher<String>
 ) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

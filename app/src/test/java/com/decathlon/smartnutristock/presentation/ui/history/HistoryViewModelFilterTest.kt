@@ -1,5 +1,6 @@
 package com.decathlon.smartnutristock.presentation.ui.history
 
+import androidx.lifecycle.SavedStateHandle
 import com.decathlon.smartnutristock.domain.model.Batch
 import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
 import com.decathlon.smartnutristock.domain.model.WorkflowAction
@@ -105,7 +106,8 @@ class HistoryViewModelFilterTest {
                         mockUpdateBatchUseCase,
                         mockUpdateProductNameUseCase,
                         mockUpdateBatchActionUseCase,
-                        mockExportInventoryUseCase
+                        mockExportInventoryUseCase,
+                        SavedStateHandle()
                 )
     }
 

@@ -1,5 +1,6 @@
 package com.decathlon.smartnutristock
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -28,19 +29,29 @@ import com.decathlon.smartnutristock.presentation.ui.dashboard.DashboardScreen
 import com.decathlon.smartnutristock.presentation.ui.history.HistoryScreen
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 
 
 /**
  * Entry point of the application.
  * Sets up navigation with Jetpack Navigation Compose.
+ * Handles deep links for notification taps.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    // Reference to navController for deep link handling
+    private var navControllerRef: androidx.navigation.NavController? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val navController = rememberNavController()
+            val navController = rememberNavController().also {
+                navControllerRef = it
+            }
             SmartNutriStockTheme {
                 Scaffold(
                     topBar = {
@@ -75,12 +86,37 @@ class MainActivity : ComponentActivity() {
                         composable(route = "dashboard") {
                             DashboardScreen(navController = navController)
                         }
-                        composable(route = "history") {
+                        composable(
+                            route = "history?status={status}",
+                            arguments = listOf(
+                                navArgument("status") {
+                                    type = NavType.StringType
+                                    nullable = true
+                                    defaultValue = null
+                                }
+                            ),
+                            deepLinks = listOf(
+                                navDeepLink {
+                                    uriPattern = "smartnutristock://history?status={status}"
+                                }
+                            )
+                        ) {
                             HistoryScreen()
                         }
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Handle deep link intents when the app is already open in background.
+     * This is called when the user taps a notification while the app is running.
+     */
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        intent?.let {
+            navControllerRef?.handleDeepLink(it)
         }
     }
 }
