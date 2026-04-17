@@ -67,6 +67,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
 import com.decathlon.smartnutristock.domain.model.Batch
 import com.decathlon.smartnutristock.domain.export.ExportFormat
 import com.decathlon.smartnutristock.presentation.ui.history.ExportState
@@ -90,6 +92,7 @@ import java.time.format.DateTimeFormatter
  * - Pull-to-refresh support (manual refresh)
  * - Edit batch via three-dot menu on each card
  * - Soft delete with undo functionality via Snackbar
+ * - Deep link navigation with status filter (from notification taps)
  *
  * Performance:
  * - LazyColumn for performance
@@ -100,6 +103,11 @@ import java.time.format.DateTimeFormatter
 fun HistoryScreen(
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
+    // Note: The optional 'status' nav argument is automatically handled by SavedStateHandle
+    // in the HistoryViewModel. When navigating via deep link from notifications,
+    // the 'status' parameter is passed and the ViewModel initializes the filter accordingly.
+    // This implementation follows Clean Architecture - the UI receives state from ViewModel,
+    // not navigation parameters directly.
     // Collect UI state from ViewModel
     val uiState by viewModel.uiState.collectAsState()
 

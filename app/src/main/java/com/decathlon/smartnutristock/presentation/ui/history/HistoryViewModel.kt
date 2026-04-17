@@ -1,9 +1,11 @@
 package com.decathlon.smartnutristock.presentation.ui.history
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.decathlon.smartnutristock.domain.export.ExportFormat
 import com.decathlon.smartnutristock.domain.model.Batch
+import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
 import com.decathlon.smartnutristock.domain.usecase.ExportInventoryUseCase
 import com.decathlon.smartnutristock.domain.usecase.GetAllBatchesUseCase
 import com.decathlon.smartnutristock.domain.usecase.RestoreBatchUseCase
@@ -40,6 +42,7 @@ import javax.inject.Inject
  * - Handles batch editing via ProductRegistrationBottomSheet
  * - Handles soft delete with undo functionality
  * - Handles inventory export to CSV/PDF formats
+ * - Handles deep link navigation with status filter
  */
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
@@ -49,7 +52,8 @@ class HistoryViewModel @Inject constructor(
     private val updateBatchUseCase: UpdateBatchUseCase,
     private val updateProductNameUseCase: UpdateProductNameUseCase,
     private val updateBatchActionUseCase: UpdateBatchActionUseCase,
-    private val exportInventoryUseCase: ExportInventoryUseCase
+    private val exportInventoryUseCase: ExportInventoryUseCase,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     // UI State
@@ -69,6 +73,20 @@ class HistoryViewModel @Inject constructor(
     // Action Filter State
     private val _actionFilter = MutableStateFlow(ActionFilter.ALL)
     val actionFilter: StateFlow<ActionFilter> = _actionFilter.asStateFlow()
+
+    // Semaphore Status Filter State (for deep link navigation)
+    private val _statusFilter = MutableStateFlow(
+        // Initialize from SavedStateHandle["status"] (deep link parameter)
+        savedStateHandle.get<String>("status")?.let { statusString ->
+            // Map string to SemaphoreStatusFilter enum
+            when (statusString.uppercase()) {
+                "YELLOW" -> SemaphoreStatusFilter.YELLOW
+                "EXPIRED" -> SemaphoreStatusFilter.EXPIRED
+                else -> SemaphoreStatusFilter.ALL
+            }
+        } ?: SemaphoreStatusFilter.ALL
+    )
+    val statusFilter: StateFlow<SemaphoreStatusFilter> = _statusFilter.asStateFlow()
 
     // Export State
     private val _exportState = MutableStateFlow<ExportState>(ExportState.Idle)
@@ -90,7 +108,7 @@ class HistoryViewModel @Inject constructor(
      * Load all batches ONCE (not a flow collector).
      * This prevents infinite recomposition loop.
      * Status is already calculated dynamically in StockRepository.
-     * Batches are filtered by action state based on current filter selection.
+     * Batches are filtered by action state and status based on current filter selection.
      */
     private fun loadBatchesOnce() {
         viewModelScope.launch {
@@ -100,14 +118,21 @@ class HistoryViewModel @Inject constructor(
                 // Use first() from flow to get batches once, not collect
                 val allBatches = getAllBatchesUseCase().first()
 
-                // Filter batches by action state based on current filter
-                val filteredBatches = when (_actionFilter.value) {
+                // First, filter by action state based on current action filter
+                val actionFilteredBatches = when (_actionFilter.value) {
                     ActionFilter.ALL -> allBatches
                     ActionFilter.PENDING -> allBatches.filter { it.actionTaken == com.decathlon.smartnutristock.domain.model.WorkflowAction.PENDING }
                     ActionFilter.WITH_ACTION -> allBatches.filter { it.actionTaken != com.decathlon.smartnutristock.domain.model.WorkflowAction.PENDING }
                 }
 
-                _uiState.value = HistoryUiState.Success(filteredBatches)
+                // Then, filter by status based on current status filter (for deep link navigation)
+                val statusFilteredBatches = when (_statusFilter.value) {
+                    SemaphoreStatusFilter.ALL -> actionFilteredBatches
+                    SemaphoreStatusFilter.YELLOW -> actionFilteredBatches.filter { it.status == SemaphoreStatus.YELLOW }
+                    SemaphoreStatusFilter.EXPIRED -> actionFilteredBatches.filter { it.status == SemaphoreStatus.EXPIRED }
+                }
+
+                _uiState.value = HistoryUiState.Success(statusFilteredBatches)
             } catch (e: Exception) {
                 _uiState.value = HistoryUiState.Error(e.message ?: "Error al cargar lotes")
             }
@@ -164,6 +189,17 @@ class HistoryViewModel @Inject constructor(
      */
     fun setActionFilter(filter: ActionFilter) {
         _actionFilter.value = filter
+        // Reload batches with new filter
+        loadBatchesOnce()
+    }
+
+    /**
+     * Set the status filter for batch display (for deep link navigation).
+     *
+     * @param filter The filter to apply (ALL, YELLOW, EXPIRED)
+     */
+    fun setStatusFilter(filter: SemaphoreStatusFilter) {
+        _statusFilter.value = filter
         // Reload batches with new filter
         loadBatchesOnce()
     }
@@ -443,6 +479,27 @@ enum class ActionFilter {
      * Show only batches with action taken (DISCOUNTED or REMOVED).
      */
     WITH_ACTION
+}
+
+/**
+ * Semaphore status filter enum for filtering batches by expiry status.
+ * Used for deep link navigation from notifications.
+ */
+enum class SemaphoreStatusFilter {
+    /**
+     * Show all batches regardless of status.
+     */
+    ALL,
+
+    /**
+     * Show only batches with YELLOW status (1-7 days to expiry).
+     */
+    YELLOW,
+
+    /**
+     * Show only batches with EXPIRED status (0 days or less to expiry).
+     */
+    EXPIRED
 }
 
 /**

@@ -1,3 +1,19 @@
 <resources>
     <string name="app_name">Smart Nutri Stock</string>
+
+    <!-- Notification Strings -->
+    <string name="notification_yellow_title">Tienes %1$d lotes por caducar pronto</string>
+    <string name="notification_expired_title">Tienes %1$d lotes caducados</string>
+    <string name="notification_channel_name">Alertas de caducidad</string>
+    <string name="notification_channel_description">Notificaciones para lotes por caducar o caducados</string>
+
+    <!-- Notification Permission Rationale -->
+    <string name="notification_rationale_title">Activar notificaciones</string>
+    <string name="notification_rationale_message">Las notificaciones te alertarán cuando haya lotes por caducar o caducados, ayudándote a reducir el desperdicio de alimentos. ¿Deseas activarlas?</string>
+    <string name="notification_rationale_confirm">Activar</string>
+    <string name="notification_rationale_dismiss">Ahora no</string>
+
+    <!-- Notification Permission Snackbar -->
+    <string name="notification_permission_denied">Las notificaciones están desactivadas. Puedes activarlas en Ajustes.</string>
+    <string name="notification_permission_settings">Abrir Ajustes</string>
 </resources>
