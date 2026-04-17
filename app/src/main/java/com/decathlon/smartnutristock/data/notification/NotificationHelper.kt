@@ -5,9 +5,11 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.decathlon.smartnutristock.R
 import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -161,7 +163,17 @@ class NotificationHelper @Inject constructor(
             .build()
 
         // Send notification
-        NotificationManagerCompat.from(context).notify(notificationId, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                NotificationManagerCompat.from(context).notify(notificationId, notification)
+            }
+        } else {
+            NotificationManagerCompat.from(context).notify(notificationId, notification)
+        }
     }
 
     /**

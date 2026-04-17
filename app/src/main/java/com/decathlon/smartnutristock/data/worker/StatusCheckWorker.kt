@@ -89,7 +89,7 @@ class StatusCheckWorker @AssistedInject constructor(
             // 4. Return success
             return Result.success()
 
-        } catch (e: Exception) {
+        } catch (hacerloe: Exception) {
             // Log error and return failure (WorkManager will retry with backoff)
             // TODO: Add proper logging when error tracking is implemented
             return Result.failure()
