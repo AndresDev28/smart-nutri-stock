@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.6.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.5.0...v2.6.0) (2026-04-17)
+
+
+### Features
+
+* add local push notifications for expiry alerts (Feature 5) ([8828536](https://github.com/AndresDev28/smart-nutri-stock/commit/8828536e00d690cbeceab31e2f5fa3556f2bae01))
+
+
+### Bug Fixes
+
+* add POST_NOTIFICATIONS runtime permission check before notify() in NotificationHelper ([10c42a1](https://github.com/AndresDev28/smart-nutri-stock/commit/10c42a1562be309e532c08031384f97420e33d2b))
+
 ## [2.5.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.4.0...v2.5.0) (2026-04-09)
 
 
