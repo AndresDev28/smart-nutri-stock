@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Update
 import com.decathlon.smartnutristock.data.entity.ActiveStockEntity
 import com.decathlon.smartnutristock.data.entity.BatchWithProductInfo
+import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 
 /**
@@ -158,4 +159,103 @@ interface StockDao {
 
     @Query("DELETE FROM active_stocks WHERE id = :id")
     suspend fun deleteById(id: String): Int
+
+    // ============================================================================
+    // Sync Queries (Added for multi-device synchronization)
+    // ============================================================================
+
+    /**
+     * Get all records with pending sync (dirty records).
+     *
+     * Returns Flow for reactive observation of dirty records.
+     * Filters by storeId for multitenancy support.
+     *
+     * @param storeId Store identifier to filter records
+     * @return Flow of dirty ActiveStockEntity records
+     */
+    @Query("SELECT * FROM active_stocks WHERE isDirty = 1 AND storeId = :storeId AND deletedAt IS NULL")
+    fun getDirtyRecords(storeId: String): Flow<List<ActiveStockEntity>>
+
+    /**
+     * Mark records as synced by clearing dirty flag and updating sync metadata.
+     *
+     * @param ids List of record IDs to mark as synced
+     * @param syncedAt Timestamp when sync occurred
+     * @return Number of records updated
+     */
+    @Query(
+        """
+        UPDATE active_stocks
+        SET isDirty = 0,
+            syncedAt = :syncedAt,
+            version = version + 1
+        WHERE id IN (:ids)
+        """
+    )
+    suspend fun markAsSynced(ids: List<String>, syncedAt: Instant): Int
+
+    /**
+     * Claim orphan records for a specific user and store.
+     *
+     * Assigns userId and storeId to records with null or empty userId.
+     * Called after successful login to associate orphan records with the user.
+     *
+     * @param userId User ID to assign to orphan records
+     * @param storeId Store ID to assign (typically "1620")
+     * @return Number of records updated
+     */
+    @Query(
+        """
+        UPDATE active_stocks
+        SET userId = :userId,
+            storeId = :storeId,
+            isDirty = 1
+        WHERE (userId IS NULL OR userId = '') AND deletedAt IS NULL
+        """
+    )
+    suspend fun claimOrphanRecords(userId: String, storeId: String): Int
+
+    /**
+     * Get all records for a specific store.
+     *
+     * Returns Flow for reactive observation of store-specific inventory.
+     *
+     * @param storeId Store identifier to filter records
+     * @return Flow of ActiveStockEntity records for the store
+     */
+    @Query(
+        """
+        SELECT * FROM active_stocks
+        WHERE storeId = :storeId AND deletedAt IS NULL
+        ORDER BY expiryDate ASC
+        """
+    )
+    fun getAllByStore(storeId: String): Flow<List<ActiveStockEntity>>
+
+    /**
+     * Mark a record as dirty (has unsynced changes).
+     *
+     * Called when a record is modified locally and needs to be synced.
+     *
+     * @param id Record ID to mark as dirty
+     * @return Number of records updated (1 if successful, 0 if not found)
+     */
+    @Query("UPDATE active_stocks SET isDirty = 1 WHERE id = :id")
+    suspend fun markAsDirty(id: String): Int
+
+    /**
+     * Fix storeId values that were stored with literal JSON quotes.
+     *
+     * Bug fix: EncryptedSessionManager.saveSession() was using .toString() on a JsonElement,
+     * which wraps string values in literal quotes (e.g., "\"1620\"" instead of "1620").
+     * This query strips surrounding double-quotes from all storeId values.
+     *
+     * @return Number of records fixed
+     */
+    @Query("""
+        UPDATE active_stocks
+        SET storeId = REPLACE(storeId, '"', '')
+        WHERE storeId LIKE '"%"'
+    """)
+    suspend fun sanitizeStoreIds(): Int
 }

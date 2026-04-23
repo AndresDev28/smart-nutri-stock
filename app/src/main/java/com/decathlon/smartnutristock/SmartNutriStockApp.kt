@@ -17,6 +17,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 /**
  * Main application class for Smart Nutri Stock.
@@ -42,6 +43,11 @@ class SmartNutriStockApp : Application(), androidx.work.Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+
+        // 🌲 Plant Timber FIRST so all subsequent logs are captured
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+        }
 
         // Initialize WorkManager and enqueue StatusCheckWorker
         initializeStatusCheckWorker()
