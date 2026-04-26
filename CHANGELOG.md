@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.6.1](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.6.0...v2.6.1) (2026-04-26)
+
+
+### Bug Fixes
+
+* **sync:** resolve Room→Supabase sync pipeline failures ([584f801](https://github.com/AndresDev28/smart-nutri-stock/commit/584f8019f9144caad594f0dcae3234d4c902d0c9))
+* **test:** resolve StockRepositoryImplTest failures with correct mock matchers ([90d0eab](https://github.com/AndresDev28/smart-nutri-stock/commit/90d0eabfe5f4d291b9f8043618d7a3bfbc9c2ccb))
+
 ## [2.6.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.5.0...v2.6.0) (2026-04-17)
 
 
