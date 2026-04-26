@@ -23,8 +23,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import android.widget.Toast
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.CardDefaults
@@ -55,6 +57,7 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.decathlon.smartnutristock.data.worker.SyncScheduler
 import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
 import com.decathlon.smartnutristock.presentation.permission.NotificationPermissionHandler
 import com.decathlon.smartnutristock.presentation.permission.NotificationPermissionHandler.RationaleDialogState
@@ -216,7 +219,8 @@ fun DashboardScreen(
                         counters = (uiState as DashboardUiState.Success).counters,
                         navController = navController,
                         cameraPermissionGranted = cameraPermissionGranted,
-                        cameraPermissionLauncher = cameraPermissionLauncher
+                        cameraPermissionLauncher = cameraPermissionLauncher,
+                        context = context
                     )
                 }
 
@@ -238,7 +242,8 @@ private fun DashboardContent(
     counters: SemaphoreCounters,
     navController: NavController,
     cameraPermissionGranted: Boolean,
-    cameraPermissionLauncher: androidx.activity.result.ActivityResultLauncher<String>
+    cameraPermissionLauncher: androidx.activity.result.ActivityResultLauncher<String>,
+    context: Context
 ) {
     Column(
         modifier = Modifier
@@ -338,7 +343,7 @@ private fun DashboardContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+
 
         // Total Products Count
         Card(

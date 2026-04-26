@@ -3,6 +3,7 @@ package com.decathlon.smartnutristock.data.repository
 import com.decathlon.smartnutristock.data.dao.StockDao
 import com.decathlon.smartnutristock.data.dao.ProductCatalogDao
 import com.decathlon.smartnutristock.data.entity.ActiveStockEntity
+import com.decathlon.smartnutristock.data.local.encrypted.EncryptedSessionManager
 import com.decathlon.smartnutristock.domain.model.Batch
 import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
 import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
@@ -13,6 +14,7 @@ import com.decathlon.smartnutristock.domain.usecase.CalculateStatusUseCase
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import timber.log.Timber
 import java.time.Clock
 import java.time.Instant
 import javax.inject.Inject
@@ -28,7 +30,8 @@ import javax.inject.Inject
 class StockRepositoryImpl @Inject constructor(
     private val stockDao: StockDao,
     private val productCatalogDao: ProductCatalogDao,
-    private val calculateStatusUseCase: CalculateStatusUseCase
+    private val calculateStatusUseCase: CalculateStatusUseCase,
+    private val sessionManager: EncryptedSessionManager
 ) : StockRepository {
 
     @Transaction
@@ -66,7 +69,9 @@ class StockRepositoryImpl @Inject constructor(
                     createdAt = existing.createdAt,
                     updatedAt = Instant.now(Clock.systemUTC()),
                     deletedAt = existing.deletedAt,
-                    actionTaken = batch.actionTaken.name
+                    actionTaken = batch.actionTaken.name,
+                    userId = existing.userId ?: sessionManager.getUserId(),
+                    storeId = existing.storeId.ifEmpty { sessionManager.getStoreId() ?: "1620" }
                 )
                 stockDao.update(updatedEntity)
                 UpsertBatchResult.Success(status)
@@ -129,6 +134,15 @@ class StockRepositoryImpl @Inject constructor(
         }
     }
 
+    private fun resolveUserId(existing: ActiveStockEntity? = null): String? {
+        return existing?.userId ?: sessionManager.getUserId()
+    }
+
+    private fun resolveStoreId(existing: ActiveStockEntity? = null): String {
+        if (existing != null && existing.storeId.isNotEmpty()) return existing.storeId
+        return sessionManager.getStoreId() ?: "1620"
+    }
+
     @Transaction
     override suspend fun updateBatch(batch: Batch): Int {
         return try {
@@ -149,7 +163,9 @@ class StockRepositoryImpl @Inject constructor(
                     createdAt = existing.createdAt,
                     updatedAt = Instant.now(clock),
                     deletedAt = existing.deletedAt,
-                    actionTaken = batch.actionTaken.name
+                    actionTaken = batch.actionTaken.name,
+                    userId = resolveUserId(existing),
+                    storeId = resolveStoreId(existing)
                 )
                 stockDao.update(updatedEntity)
             } else {
@@ -165,7 +181,9 @@ class StockRepositoryImpl @Inject constructor(
                         createdAt = targetExisting.createdAt,
                         updatedAt = Instant.now(clock),
                         deletedAt = targetExisting.deletedAt,
-                        actionTaken = batch.actionTaken.name
+                        actionTaken = batch.actionTaken.name,
+                        userId = resolveUserId(targetExisting),
+                        storeId = resolveStoreId(targetExisting)
                     )
                     stockDao.update(mergedEntity)
                 } else {
@@ -177,7 +195,9 @@ class StockRepositoryImpl @Inject constructor(
                         createdAt = existing.createdAt,
                         updatedAt = Instant.now(clock),
                         deletedAt = null,
-                        actionTaken = batch.actionTaken.name
+                        actionTaken = batch.actionTaken.name,
+                        userId = resolveUserId(),
+                        storeId = resolveStoreId()
                     )
                     stockDao.insert(newEntity)
                 }
@@ -225,6 +245,11 @@ class StockRepositoryImpl @Inject constructor(
      */
     private fun Batch.toEntity(): ActiveStockEntity {
         val now = Instant.now(Clock.systemUTC())
+        val userId = sessionManager.getUserId()
+        val storeId = sessionManager.getStoreId() ?: "1620"
+        if (userId == null) {
+            Timber.w("Batch.toEntity: userId is null — session may not be initialized")
+        }
         return ActiveStockEntity(
             id = this.id,
             ean = this.ean,
@@ -233,7 +258,9 @@ class StockRepositoryImpl @Inject constructor(
             createdAt = now,
             updatedAt = now,
             deletedAt = this.deletedAt,
-            actionTaken = this.actionTaken.name
+            actionTaken = this.actionTaken.name,
+            userId = userId,
+            storeId = storeId
         )
     }
 }

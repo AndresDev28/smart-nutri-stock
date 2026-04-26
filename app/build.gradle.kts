@@ -1,10 +1,27 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
     kotlin("kapt")
+    kotlin("plugin.serialization")
 }
+
+val localProperties = Properties().apply {
+    val localPropsFile = rootProject.file("local.properties")
+    if (localPropsFile.exists()) {
+        load(localPropsFile.inputStream())
+    }
+}
+val supabaseUrl: String = localProperties.getProperty("SUPABASE_URL")
+    ?: System.getenv("SUPABASE_URL")
+    ?: "https://your-project.supabase.co"
+val supabaseAnonKey: String = localProperties.getProperty("SUPABASE_ANON_KEY")
+    ?: System.getenv("SUPABASE_ANON_KEY")
+    ?: "your-anon-key-here"
 
 android {
     namespace = "com.decathlon.smartnutristock"
@@ -22,10 +39,8 @@ android {
             useSupportLibrary = true
         }
 
-        // Room schema export location for migration testing and validation
-        ksp {
-            arg("room.schemaLocation", "$projectDir/schemas")
-        }
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
     }
 
     buildTypes {
@@ -50,12 +65,24 @@ android {
         jvmTarget = "17"
     }
 
-    buildFeatures {
-        compose = true
+    sourceSets {
+        getByName("androidTest") {
+            assets.srcDirs("src/androidTest/assets")
+        }
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.8"
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+            all {
+                it.jvmArgs("--add-opens", "java.base/java.lang.reflect=ALL-UNNAMED")
+            }
+        }
     }
 
     packaging {
@@ -72,10 +99,14 @@ android {
             excludes += "META-INF/ASL2.0"
         }
     }
+}
 
-    kapt {
-        correctErrorTypes = true
-    }
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+kapt {
+    correctErrorTypes = true
 }
 
 dependencies {
@@ -86,12 +117,11 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.8.2")
 
     // Jetpack Compose
-    implementation(platform("androidx.compose:compose-bom:2024.03.00"))
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.compose.ui:ui:1.6.0")
+    implementation("androidx.compose.ui:ui-graphics:1.6.0")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.6.0")
+    implementation("androidx.compose.material3:material3:1.2.0")
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
 
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")
@@ -123,9 +153,24 @@ dependencies {
     implementation("androidx.hilt:hilt-work:1.2.0")
     kapt("androidx.hilt:hilt-compiler:1.2.0")
 
+    // Supabase Kotlin SDK
+    implementation(platform("io.github.jan-tennert.supabase:bom:2.6.1"))
+    implementation("io.github.jan-tennert.supabase:gotrue-kt")
+    implementation("io.github.jan-tennert.supabase:postgrest-kt")
+    implementation("io.ktor:ktor-client-cio:2.3.12")
+
+    // EncryptedSharedPreferences (for JWT token storage)
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // Timber (Logging)
+    implementation("com.jakewharton.timber:timber:5.0.1")
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+
+    // Kotlin Serialization (for Supabase SessionManager)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
     // DataStore (Preferences)
     implementation("androidx.datastore:datastore-preferences:1.0.0")

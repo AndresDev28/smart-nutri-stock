@@ -8,6 +8,7 @@ import com.decathlon.smartnutristock.data.local.MIGRATION_1_2
 import com.decathlon.smartnutristock.data.local.MIGRATION_2_3
 import com.decathlon.smartnutristock.data.local.MIGRATION_3_4
 import com.decathlon.smartnutristock.data.local.MIGRATION_4_5
+import com.decathlon.smartnutristock.data.local.MIGRATION_5_6
 import com.decathlon.smartnutristock.data.local.SmartNutriStockDatabase
 import dagger.Module
 import dagger.Provides
@@ -32,6 +33,7 @@ object DatabaseModule {
      * - MIGRATION_2_3: Create active_stocks table with composite index
      * - MIGRATION_3_4: Add deletedAt column for soft-delete support
      * - MIGRATION_4_5: Add actionTaken column for workflow action tracking
+     * - MIGRATION_5_6: Add users table + sync columns (userId, storeId, syncedAt, version, deviceId, isDirty) to active_stocks
      */
     @Provides
     @Singleton
@@ -43,7 +45,7 @@ object DatabaseModule {
             SmartNutriStockDatabase::class.java,
             SmartNutriStockDatabase.DATABASE_NAME
         )
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
             .build()
     }
 

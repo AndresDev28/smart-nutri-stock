@@ -7,17 +7,20 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.decathlon.smartnutristock.data.dao.ProductCatalogDao
 import com.decathlon.smartnutristock.data.dao.StockDao
+import com.decathlon.smartnutristock.data.dao.UserDao
 import com.decathlon.smartnutristock.data.entity.ActiveStockEntity
 import com.decathlon.smartnutristock.data.entity.ProductCatalogEntity
+import com.decathlon.smartnutristock.data.entity.UserEntity
 import com.decathlon.smartnutristock.data.local.InstantConverters
 
 @Database(
-    entities = [ProductCatalogEntity::class, ActiveStockEntity::class],
-    version = 5,
+    entities = [UserEntity::class, ProductCatalogEntity::class, ActiveStockEntity::class],
+    version = 6,
     exportSchema = true
 )
 @TypeConverters(InstantConverters::class, WorkflowActionConverter::class)
 abstract class SmartNutriStockDatabase : RoomDatabase() {
+    abstract fun userDao(): UserDao
     abstract fun productCatalogDao(): ProductCatalogDao
     abstract fun stockDao(): StockDao
 
@@ -78,5 +81,39 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         database.execSQL(
             "ALTER TABLE active_stocks ADD COLUMN actionTaken TEXT NOT NULL DEFAULT 'PENDING'"
         )
+    }
+}
+
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        // Create users table
+        database.execSQL(
+            """
+            CREATE TABLE users (
+                id TEXT PRIMARY KEY NOT NULL,
+                email TEXT NOT NULL,
+                storeId TEXT NOT NULL DEFAULT '1620',
+                role TEXT NOT NULL DEFAULT 'STAFF',
+                deviceId TEXT NOT NULL,
+                createdAt INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        database.execSQL("CREATE INDEX IF NOT EXISTS index_users_email ON users(email)")
+        database.execSQL("CREATE INDEX IF NOT EXISTS index_users_storeId ON users(storeId)")
+
+        // Add sync columns to active_stocks with EXACT defaults as specified by Lead Architect
+        database.execSQL("ALTER TABLE active_stocks ADD COLUMN userId TEXT DEFAULT NULL")
+        database.execSQL("ALTER TABLE active_stocks ADD COLUMN storeId TEXT NOT NULL DEFAULT '1620'")
+        database.execSQL("ALTER TABLE active_stocks ADD COLUMN syncedAt INTEGER DEFAULT NULL")
+        database.execSQL("ALTER TABLE active_stocks ADD COLUMN version INTEGER NOT NULL DEFAULT 1")
+        database.execSQL("ALTER TABLE active_stocks ADD COLUMN deviceId TEXT")
+        database.execSQL("ALTER TABLE active_stocks ADD COLUMN isDirty INTEGER NOT NULL DEFAULT 1")
+
+        // Create indexes for sync queries
+        database.execSQL("CREATE INDEX IF NOT EXISTS index_active_stocks_user_id ON active_stocks(userId)")
+        database.execSQL("CREATE INDEX IF NOT EXISTS index_active_stocks_store_id ON active_stocks(storeId)")
+        database.execSQL("CREATE INDEX IF NOT EXISTS index_active_stocks_is_dirty ON active_stocks(isDirty)")
     }
 }
