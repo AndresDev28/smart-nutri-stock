@@ -47,6 +47,9 @@ class StockRepositoryImplTest {
     @Test
     fun `upsert inserts new batch when not exists`() = runTest {
         // Given
+        every { sessionManager.getUserId() } returns "user-123"
+        every { sessionManager.getStoreId() } returns "1620"
+
         val batch = Batch(
             id = "batch-1",
             ean = "8435408475366",
@@ -56,7 +59,7 @@ class StockRepositoryImplTest {
         )
 
         coEvery { stockDao.findByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns null
-        every { calculateStatusUseCase(batch.expiryDate, any()) } returns SemaphoreStatus.GREEN
+        every { calculateStatusUseCase(any(), any()) } returns SemaphoreStatus.GREEN
         coEvery { stockDao.insert(any()) } returns 1L
 
         // When
@@ -75,6 +78,9 @@ class StockRepositoryImplTest {
     @Test
     fun `upsert updates existing batch when exists`() = runTest {
         // Given
+        every { sessionManager.getUserId() } returns "user-123"
+        every { sessionManager.getStoreId() } returns "1620"
+
         val batch = Batch(
             id = "batch-1",
             ean = "8435408475366",
@@ -93,7 +99,7 @@ class StockRepositoryImplTest {
         )
 
         coEvery { stockDao.findByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns existingEntity
-        every { calculateStatusUseCase(batch.expiryDate, any()) } returns SemaphoreStatus.GREEN
+        every { calculateStatusUseCase(any(), any()) } returns SemaphoreStatus.GREEN
         coEvery { stockDao.update(any()) } returns 1
 
         // When
@@ -112,6 +118,9 @@ class StockRepositoryImplTest {
     @Test
     fun `upsert deletes batch when quantity is zero`() = runTest {
         // Given
+        every { sessionManager.getUserId() } returns "user-123"
+        every { sessionManager.getStoreId() } returns "1620"
+
         val batch = Batch(
             id = "batch-1",
             ean = "8435408475366",
@@ -130,7 +139,7 @@ class StockRepositoryImplTest {
         )
 
         coEvery { stockDao.findByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns existingEntity
-        every { calculateStatusUseCase(batch.expiryDate, any()) } returns SemaphoreStatus.GREEN
+        every { calculateStatusUseCase(any(), any()) } returns SemaphoreStatus.GREEN
         coEvery { stockDao.deleteByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns 1
 
         // When
@@ -149,6 +158,9 @@ class StockRepositoryImplTest {
     @Test
     fun `upsert deletes batch when quantity is negative`() = runTest {
         // Given
+        every { sessionManager.getUserId() } returns "user-123"
+        every { sessionManager.getStoreId() } returns "1620"
+
         val batch = Batch(
             id = "batch-1",
             ean = "8435408475366",
@@ -167,7 +179,7 @@ class StockRepositoryImplTest {
         )
 
         coEvery { stockDao.findByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns existingEntity
-        every { calculateStatusUseCase(batch.expiryDate, any()) } returns SemaphoreStatus.GREEN
+        every { calculateStatusUseCase(any(), any()) } returns SemaphoreStatus.GREEN
         coEvery { stockDao.deleteByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns 1
 
         // When
@@ -216,7 +228,7 @@ class StockRepositoryImplTest {
         val entity = ActiveStockEntity("batch-1", ean, 10, expiryDate, testNow, testNow)
 
         coEvery { stockDao.findByEanAndExpiryDate(ean, expiryDate) } returns entity
-        every { calculateStatusUseCase(expiryDate) } returns SemaphoreStatus.GREEN
+        every { calculateStatusUseCase(any()) } returns SemaphoreStatus.GREEN
 
         // When
         val batch = repository.findByEanAndExpiryDate(ean, expiryDate)
@@ -340,6 +352,9 @@ class StockRepositoryImplTest {
     @Test
     fun `upsert returns Error when insert fails`() = runTest {
         // Given
+        every { sessionManager.getUserId() } returns "user-123"
+        every { sessionManager.getStoreId() } returns "1620"
+
         val batch = Batch(
             id = "batch-1",
             ean = "8435408475366",
@@ -349,7 +364,7 @@ class StockRepositoryImplTest {
         )
 
         coEvery { stockDao.findByEanAndExpiryDate(batch.ean, batch.expiryDate) } returns null
-        every { calculateStatusUseCase(batch.expiryDate, any()) } returns SemaphoreStatus.GREEN
+        every { calculateStatusUseCase(any(), any()) } returns SemaphoreStatus.GREEN
         coEvery { stockDao.insert(any()) } returns -1L // Insert failed
 
         // When
@@ -361,6 +376,9 @@ class StockRepositoryImplTest {
 
     @Test
     fun `updateBatch updates existing batch when expiry date unchanged`() = runTest {
+        every { sessionManager.getUserId() } returns "user-123"
+        every { sessionManager.getStoreId() } returns "1620"
+
         val batch = Batch(
             id = "batch-1",
             ean = "8435408475366",
@@ -379,7 +397,7 @@ class StockRepositoryImplTest {
         )
 
         coEvery { stockDao.findById(batch.id) } returns existingEntity
-        every { calculateStatusUseCase(batch.expiryDate, any()) } returns SemaphoreStatus.GREEN
+        every { calculateStatusUseCase(any(), any()) } returns SemaphoreStatus.GREEN
         coEvery { stockDao.update(any()) } returns 1
 
         val result = repository.updateBatch(batch)
@@ -395,6 +413,9 @@ class StockRepositoryImplTest {
 
     @Test
     fun `updateBatch deletes old and inserts new when expiry date changes`() = runTest {
+        every { sessionManager.getUserId() } returns "user-123"
+        every { sessionManager.getStoreId() } returns "1620"
+
         val oldDate = Instant.parse("2026-07-01T00:00:00Z")
         val newDate = Instant.parse("2026-12-01T00:00:00Z")
 
@@ -416,7 +437,7 @@ class StockRepositoryImplTest {
         )
 
         coEvery { stockDao.findById(batch.id) } returns existingEntity
-        every { calculateStatusUseCase(newDate, any()) } returns SemaphoreStatus.GREEN
+        every { calculateStatusUseCase(any(), any()) } returns SemaphoreStatus.GREEN
         coEvery { stockDao.deleteById("batch-1") } returns 1
         coEvery { stockDao.findByEanAndExpiryDate(batch.ean, newDate) } returns null
         coEvery { stockDao.insert(any()) } returns 1L
@@ -435,6 +456,9 @@ class StockRepositoryImplTest {
 
     @Test
     fun `updateBatch merges quantities when new date has existing batch`() = runTest {
+        every { sessionManager.getUserId() } returns "user-123"
+        every { sessionManager.getStoreId() } returns "1620"
+
         val oldDate = Instant.parse("2026-07-01T00:00:00Z")
         val newDate = Instant.parse("2026-12-01T00:00:00Z")
 
@@ -465,7 +489,7 @@ class StockRepositoryImplTest {
         )
 
         coEvery { stockDao.findById(batch.id) } returns existingEntity
-        every { calculateStatusUseCase(newDate, any()) } returns SemaphoreStatus.GREEN
+        every { calculateStatusUseCase(any(), any()) } returns SemaphoreStatus.GREEN
         coEvery { stockDao.deleteById("batch-1") } returns 1
         coEvery { stockDao.findByEanAndExpiryDate(batch.ean, newDate) } returns targetExisting
         coEvery { stockDao.update(any()) } returns 1
@@ -483,6 +507,9 @@ class StockRepositoryImplTest {
 
     @Test
     fun `upsert sums quantities when same EAN and same expiry date`() = runTest {
+        every { sessionManager.getUserId() } returns "user-123"
+        every { sessionManager.getStoreId() } returns "1620"
+
         val expiryDate = Instant.parse("2026-07-01T00:00:00Z")
 
         val existingEntity = ActiveStockEntity(
@@ -503,7 +530,7 @@ class StockRepositoryImplTest {
         )
 
         coEvery { stockDao.findByEanAndExpiryDate(newBatch.ean, newBatch.expiryDate) } returns existingEntity
-        every { calculateStatusUseCase(newBatch.expiryDate, any()) } returns SemaphoreStatus.GREEN
+        every { calculateStatusUseCase(any(), any()) } returns SemaphoreStatus.GREEN
         coEvery { stockDao.update(any()) } returns 1
 
         val result = repository.upsert(newBatch)
@@ -519,6 +546,9 @@ class StockRepositoryImplTest {
 
     @Test
     fun `upsert creates new record when same EAN but different expiry date`() = runTest {
+        every { sessionManager.getUserId() } returns "user-123"
+        every { sessionManager.getStoreId() } returns "1620"
+
         val date1 = Instant.parse("2026-07-01T00:00:00Z")
         val date2 = Instant.parse("2026-12-01T00:00:00Z")
 
