@@ -3,6 +3,7 @@ package com.decathlon.smartnutristock.data.repository
 import com.decathlon.smartnutristock.data.dao.StockDao
 import com.decathlon.smartnutristock.data.dao.ProductCatalogDao
 import com.decathlon.smartnutristock.data.entity.ActiveStockEntity
+import com.decathlon.smartnutristock.data.local.encrypted.EncryptedSessionManager
 import com.decathlon.smartnutristock.domain.model.Batch
 import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
 import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
@@ -34,7 +35,8 @@ class StockRepositoryImplTest {
     private val stockDao = mockk<StockDao>()
     private val productCatalogDao = mockk<ProductCatalogDao>()
     private val calculateStatusUseCase = mockk<CalculateStatusUseCase>()
-    private val repository = StockRepositoryImpl(stockDao, productCatalogDao, calculateStatusUseCase)
+    private val sessionManager = mockk<EncryptedSessionManager>()
+    private val repository = StockRepositoryImpl(stockDao, productCatalogDao, calculateStatusUseCase, sessionManager)
 
     private val testClock = Clock.fixed(Instant.parse("2024-01-01T00:00:00Z"), java.time.ZoneOffset.UTC)
     private val testNow = Instant.now(testClock)

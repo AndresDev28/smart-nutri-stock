@@ -3,6 +3,9 @@ package com.decathlon.smartnutristock.di
 import android.content.Context
 import com.decathlon.smartnutristock.BuildConfig
 import com.decathlon.smartnutristock.data.local.encrypted.EncryptedSessionManager
+import com.decathlon.smartnutristock.data.validation.EmailValidatorImpl
+import com.decathlon.smartnutristock.domain.validation.EmailValidator
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -81,4 +84,23 @@ object AuthModule {
     fun providePostgrest(supabaseClient: SupabaseClient): Postgrest {
         return supabaseClient.postgrest
     }
+}
+
+/**
+ * Hilt binding module for validation dependencies.
+ *
+ * Provides bindings for domain validation interfaces to their data layer implementations.
+ */
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class ValidationModule {
+    /**
+     * Bind EmailValidator interface to EmailValidatorImpl.
+     *
+     * This allows the domain layer to depend only on the EmailValidator interface,
+     * while the actual Android-specific implementation lives in the data layer.
+     */
+    @Binds
+    @Singleton
+    abstract fun bindEmailValidator(impl: EmailValidatorImpl): EmailValidator
 }

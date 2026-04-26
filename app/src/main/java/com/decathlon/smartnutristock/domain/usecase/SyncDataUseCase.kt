@@ -41,18 +41,15 @@ class SyncDataUseCase @Inject constructor(
      * @return SyncResult indicating overall success/failure and counts
      */
     suspend operator fun invoke(storeId: String = "1620"): SyncResult {
-        Timber.d("Sync: Starting sync cycle for storeId=$storeId")
-
         // 1. Get last sync time
         val lastSyncTime = syncRepository.getLastSyncTime(storeId)
-        Timber.d("Sync: Last sync time = $lastSyncTime")
 
         // 2. Push dirty records (local → cloud)
         val pushResult = syncRepository.pushDirtyRecords(storeId)
 
         when (pushResult) {
             is SyncResult.Success -> {
-                Timber.d("Sync: Push successful - ${pushResult.syncedCount} records")
+                // Push successful - continue to pull
             }
             is SyncResult.PartialSuccess -> {
                 Timber.w("Sync: Push partial success - ${pushResult.syncedCount} synced, ${pushResult.failedCount} failed")
@@ -80,7 +77,6 @@ class SyncDataUseCase @Inject constructor(
 
         when (pullResult) {
             is SyncResult.Success -> {
-                Timber.d("Sync: Pull successful - ${pullResult.syncedCount} records")
                 return SyncResult.Success(
                     syncedCount = pushResult.syncedCount + pullResult.syncedCount
                 )

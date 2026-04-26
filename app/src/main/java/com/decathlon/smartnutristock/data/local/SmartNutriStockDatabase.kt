@@ -89,19 +89,19 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         // Create users table
         database.execSQL(
             """
-            CREATE TABLE IF NOT EXISTS users (
+            CREATE TABLE users (
                 id TEXT PRIMARY KEY NOT NULL,
                 email TEXT NOT NULL,
-                store_id TEXT NOT NULL DEFAULT '1620',
+                storeId TEXT NOT NULL DEFAULT '1620',
                 role TEXT NOT NULL DEFAULT 'STAFF',
-                device_id TEXT NOT NULL,
-                created_at INTEGER NOT NULL
+                deviceId TEXT NOT NULL,
+                createdAt INTEGER NOT NULL
             )
             """.trimIndent()
         )
 
         database.execSQL("CREATE INDEX IF NOT EXISTS index_users_email ON users(email)")
-        database.execSQL("CREATE INDEX IF NOT EXISTS index_users_store_id ON users(store_id)")
+        database.execSQL("CREATE INDEX IF NOT EXISTS index_users_storeId ON users(storeId)")
 
         // Add sync columns to active_stocks with EXACT defaults as specified by Lead Architect
         database.execSQL("ALTER TABLE active_stocks ADD COLUMN userId TEXT DEFAULT NULL")

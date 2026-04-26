@@ -1,0 +1,165 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 5,
+    "identityHash": "c1965eeb3911b6947da0904a3001061f",
+    "entities": [
+      {
+        "tableName": "product_catalog",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`ean` TEXT NOT NULL, `name` TEXT NOT NULL, `packSize` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `createdBy` INTEGER NOT NULL, `daysUntilExpiry` INTEGER NOT NULL, PRIMARY KEY(`ean`))",
+        "fields": [
+          {
+            "fieldPath": "ean",
+            "columnName": "ean",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packSize",
+            "columnName": "packSize",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdBy",
+            "columnName": "createdBy",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "daysUntilExpiry",
+            "columnName": "daysUntilExpiry",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "ean"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_product_catalog_ean",
+            "unique": false,
+            "columnNames": [
+              "ean"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_product_catalog_ean` ON `${TABLE_NAME}` (`ean`)"
+          },
+          {
+            "name": "index_product_catalog_name",
+            "unique": false,
+            "columnNames": [
+              "name"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_product_catalog_name` ON `${TABLE_NAME}` (`name`)"
+          }
+        ],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "active_stocks",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `ean` TEXT NOT NULL, `quantity` INTEGER NOT NULL, `expiryDate` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, `actionTaken` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ean",
+            "columnName": "ean",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quantity",
+            "columnName": "quantity",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expiryDate",
+            "columnName": "expiryDate",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deletedAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "actionTaken",
+            "columnName": "actionTaken",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_active_stocks_ean_expiryDate",
+            "unique": true,
+            "columnNames": [
+              "ean",
+              "expiryDate"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_active_stocks_ean_expiryDate` ON `${TABLE_NAME}` (`ean`, `expiryDate`)"
+          },
+          {
+            "name": "index_active_stocks_deletedAt",
+            "unique": false,
+            "columnNames": [
+              "deletedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_active_stocks_deletedAt` ON `${TABLE_NAME}` (`deletedAt`)"
+          }
+        ],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c1965eeb3911b6947da0904a3001061f')"
+    ]
+  }
+}

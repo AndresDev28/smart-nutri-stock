@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -122,7 +123,8 @@ fun LoginScreen(
             Text(
                 text = "Iniciar Sesión",
                 style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                modifier = Modifier.testTag("login_subtitle")
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -195,7 +197,8 @@ fun LoginScreen(
                 onClick = { viewModel.onLoginClick() },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp), // Thumb zone optimized for XCover7
+                    .height(56.dp) // Thumb zone optimized for XCover7
+                    .testTag("login_button"),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 ),

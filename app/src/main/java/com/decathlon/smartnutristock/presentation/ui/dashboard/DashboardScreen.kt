@@ -343,27 +343,7 @@ private fun DashboardContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
 
-        // FORZAR SYNC (DEBUG)
-        OutlinedButton(
-            onClick = {
-                SyncScheduler.triggerImmediateSync(context)
-                Toast.makeText(context, "Sync iniciado...", Toast.LENGTH_SHORT).show()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .padding(horizontal = 16.dp)
-        ) {
-            Text(
-                text = "FORZAR SYNC (DEBUG)",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
 
         // Total Products Count
         Card(

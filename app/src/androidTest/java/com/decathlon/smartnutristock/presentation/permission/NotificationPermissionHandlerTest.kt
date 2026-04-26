@@ -46,7 +46,7 @@ class NotificationPermissionHandlerTest {
     // ===== isPermissionRequired Tests =====
 
     @Test
-    fun `isPermissionRequired returns false on API 32 (Android 12)`() {
+    fun isPermissionRequired_returns_false_on_API_32() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 32
@@ -59,7 +59,7 @@ class NotificationPermissionHandlerTest {
     }
 
     @Test
-    fun `isPermissionRequired returns false on API 31 (Android 12L)`() {
+    fun isPermissionRequired_returns_false_on_API_31() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 31
@@ -72,7 +72,7 @@ class NotificationPermissionHandlerTest {
     }
 
     @Test
-    fun `isPermissionRequired returns true on API 33 (Android 13)`() {
+    fun isPermissionRequired_returns_true_on_API_33() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 33
@@ -85,7 +85,7 @@ class NotificationPermissionHandlerTest {
     }
 
     @Test
-    fun `isPermissionRequired returns true on API 34 (Android 14)`() {
+    fun isPermissionRequired_returns_true_on_API_34() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 34
@@ -100,7 +100,7 @@ class NotificationPermissionHandlerTest {
     // ===== checkPermission Tests =====
 
     @Test
-    fun `checkPermission returns true on API 32 (auto-granted)`() {
+    fun checkPermission_returns_true_on_API_32_auto_granted() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 32
@@ -113,7 +113,7 @@ class NotificationPermissionHandlerTest {
     }
 
     @Test
-    fun `checkPermission returns true on API 31 (auto-granted)`() {
+    fun checkPermission_returns_true_on_API_31_auto_granted() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 31
@@ -126,7 +126,7 @@ class NotificationPermissionHandlerTest {
     }
 
     @Test
-    fun `checkPermission returns true when permission is granted on API 33+`() {
+    fun checkPermission_returns_true_when_permission_is_granted_on_API_33_plus() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 33
@@ -143,7 +143,7 @@ class NotificationPermissionHandlerTest {
     }
 
     @Test
-    fun `checkPermission returns false when permission is denied on API 33+`() {
+    fun checkPermission_returns_false_when_permission_is_denied_on_API_33_plus() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 33
@@ -162,7 +162,7 @@ class NotificationPermissionHandlerTest {
     // ===== shouldShowRationale Tests =====
 
     @Test
-    fun `shouldShowRationale returns false on API 32 (no permission needed)`() {
+    fun shouldShowRationale_returns_false_on_API_32() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 32
@@ -175,7 +175,7 @@ class NotificationPermissionHandlerTest {
     }
 
     @Test
-    fun `shouldShowRationale returns false on API 31 (no permission needed)`() {
+    fun shouldShowRationale_returns_false_on_API_31() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 31
@@ -188,7 +188,7 @@ class NotificationPermissionHandlerTest {
     }
 
     @Test
-    fun `shouldShowRationale returns true when activity returns true on API 33+`() {
+    fun shouldShowRationale_returns_true_when_activity_returns_true_on_API_33_plus() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 33
@@ -204,7 +204,7 @@ class NotificationPermissionHandlerTest {
     }
 
     @Test
-    fun `shouldShowRationale returns false when activity returns false on API 33+`() {
+    fun shouldShowRationale_returns_false_when_activity_returns_false_on_API_33_plus() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 33
@@ -222,7 +222,7 @@ class NotificationPermissionHandlerTest {
     // ===== isPermanentlyDenied Tests =====
 
     @Test
-    fun `isPermanentlyDenied returns false on API 32 (no permission needed)`() {
+    fun isPermanentlyDenied_returns_false_on_API_32() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 32
@@ -235,7 +235,7 @@ class NotificationPermissionHandlerTest {
     }
 
     @Test
-    fun `isPermanentlyDenied returns false when permission is granted on API 33+`() {
+    fun isPermanentlyDenied_returns_false_when_permission_is_granted_on_API_33_plus() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 33
@@ -252,7 +252,7 @@ class NotificationPermissionHandlerTest {
     }
 
     @Test
-    fun `isPermanentlyDenied returns false when user denied but can ask again on API 33+`() {
+    fun isPermanentlyDenied_returns_false_when_user_denied_but_can_ask_again_on_API_33_plus() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 33
@@ -272,7 +272,7 @@ class NotificationPermissionHandlerTest {
     }
 
     @Test
-    fun `isPermanentlyDenied returns true when user denied permanently on API 33+`() {
+    fun isPermanentlyDenied_returns_true_when_user_denied_permanently_on_API_33_plus() {
         // Given
         mockkStatic(Build.VERSION::class)
         every { Build.VERSION.SDK_INT } returns 33
@@ -294,7 +294,7 @@ class NotificationPermissionHandlerTest {
     // ===== createSettingsIntent Tests =====
 
     @Test
-    fun `createSettingsIntent creates intent with correct action and URI`() {
+    fun createSettingsIntent_creates_intent_with_correct_action_and_URI() {
         // Given
         every { mockContext.packageName } returns "com.decathlon.smartnutristock"
 
@@ -308,7 +308,7 @@ class NotificationPermissionHandlerTest {
     }
 
     @Test
-    fun `createSettingsIntent uses correct package name`() {
+    fun createSettingsIntent_uses_correct_package_name() {
         // Given
         val packageName = "com.example.testapp"
         every { mockContext.packageName } returns packageName

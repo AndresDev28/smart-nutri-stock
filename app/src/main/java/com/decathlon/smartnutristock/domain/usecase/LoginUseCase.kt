@@ -1,8 +1,8 @@
 package com.decathlon.smartnutristock.domain.usecase
 
-import android.util.Patterns
 import com.decathlon.smartnutristock.domain.model.AuthState
 import com.decathlon.smartnutristock.domain.repository.AuthRepository
+import com.decathlon.smartnutristock.domain.validation.EmailValidator
 import javax.inject.Inject
 
 /**
@@ -17,9 +17,11 @@ import javax.inject.Inject
  * If validation passes, delegates to AuthRepository.login().
  *
  * @property authRepository Repository for authentication operations
+ * @property emailValidator Validator for email format
  */
 class LoginUseCase @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val emailValidator: EmailValidator
 ) {
 
     /**
@@ -44,7 +46,7 @@ class LoginUseCase @Inject constructor(
         }
 
         // Validation 2: Email must match valid format
-        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+        if (!emailValidator.isValid(email)) {
             return Result.failure(IllegalArgumentException("El formato del email no es válido"))
         }
 

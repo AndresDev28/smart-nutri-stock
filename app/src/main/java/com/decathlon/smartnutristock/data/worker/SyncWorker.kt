@@ -73,8 +73,6 @@ class SyncWorker @AssistedInject constructor(
     }
 
     override suspend fun doWork(): Result {
-        Timber.d("SyncWorker: Starting sync worker")
-
         return try {
             // 1. Auth Guard: Check if user is logged in
             val userId = sessionManager.getUserId()
@@ -85,7 +83,6 @@ class SyncWorker @AssistedInject constructor(
 
             val storeId = inputData.getString(INPUT_STORE_ID) ?: DEFAULT_STORE_ID
             val sessionStoreId = sessionManager.getStoreId()
-            Timber.d("SyncWorker: User authenticated (userId=$userId), starting sync for storeId='$storeId' (sessionStoreId='$sessionStoreId')")
 
             // 2. Execute full sync cycle
             val syncResult = syncDataUseCase(storeId)
@@ -152,8 +149,6 @@ object SyncScheduler {
      * @param storeId Store ID for sync operations (default "1620")
      */
     fun scheduleSync(context: Context, storeId: String = "1620") {
-        Timber.d("SyncScheduler: Scheduling periodic sync for storeId=$storeId")
-
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .setRequiresBatteryNotLow(true)
@@ -180,8 +175,6 @@ object SyncScheduler {
             ExistingPeriodicWorkPolicy.KEEP,  // CRITICAL: KEEP, not REPLACE
             syncRequest
         )
-
-        Timber.d("SyncScheduler: Periodic sync scheduled (every ${SYNC_INTERVAL_MINUTES} minutes)")
     }
 
     /**
@@ -194,8 +187,6 @@ object SyncScheduler {
      * @param storeId Store ID for sync operations (default "1620")
      */
     fun triggerImmediateSync(context: Context, storeId: String = "1620") {
-        Timber.d("SyncScheduler: Triggering immediate sync for storeId=$storeId")
-
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .setRequiresBatteryNotLow(true)
@@ -210,8 +201,6 @@ object SyncScheduler {
             .build()
 
         WorkManager.getInstance(context).enqueue(syncRequest)
-
-        Timber.d("SyncScheduler: Immediate sync triggered")
     }
 
     /**
@@ -222,8 +211,6 @@ object SyncScheduler {
      * @param context Application context
      */
     fun cancelSync(context: Context) {
-        Timber.d("SyncScheduler: Canceling all sync work")
         WorkManager.getInstance(context).cancelUniqueWork(SyncWorker.WORK_NAME)
-        Timber.d("SyncScheduler: Sync work canceled")
     }
 }

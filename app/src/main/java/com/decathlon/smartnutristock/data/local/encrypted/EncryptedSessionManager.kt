@@ -78,7 +78,6 @@ class EncryptedSessionManager(context: Context) : SupabaseSessionManager {
                 val storeId = user.userMetadata?.get("store_id")?.jsonPrimitive?.content
                 if (storeId != null) {
                     putString(KEY_STORE_ID, storeId)
-                    Timber.d("EncryptedSessionManager: Saved storeId='$storeId'")
                 }
             }
         }.apply()

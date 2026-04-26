@@ -87,7 +87,6 @@ class SyncRepositoryImpl @Inject constructor(
      * @return List of dirty records as Batch domain models
      */
     override suspend fun getDirtyRecords(storeId: String): List<Batch> {
-        Timber.d("Sync: Getting dirty records for storeId=$storeId")
         val dirtyEntities = stockDao.getDirtyRecords(storeId).first()
         return dirtyEntities.map { it.toBatch(calculateStatusUseCase) }
     }
@@ -108,8 +107,6 @@ class SyncRepositoryImpl @Inject constructor(
      * @return SyncResult indicating success/failure and counts
      */
     override suspend fun pushDirtyRecords(storeId: String): SyncResult {
-        Timber.d("Sync: Pushing dirty records for storeId=$storeId")
-
         return try {
             // 0. Sanitize storeIds with literal JSON quotes (one-shot fix for toString() bug)
             val sanitized = stockDao.sanitizeStoreIds()
@@ -120,19 +117,9 @@ class SyncRepositoryImpl @Inject constructor(
             // 1. Get dirty records
             val dirtyEntities = stockDao.getDirtyRecords(storeId).first()
 
-            Timber.d("Sync: Query getDirtyRecords(storeId='$storeId') returned ${dirtyEntities.size} records")
-            if (dirtyEntities.isNotEmpty()) {
-                dirtyEntities.take(3).forEach { entity ->
-                    Timber.d("Sync: Record id=${entity.id}, ean=${entity.ean}, storeId='${entity.storeId}', isDirty=${entity.isDirty}, userId=${entity.userId}")
-                }
-            }
-
             if (dirtyEntities.isEmpty()) {
-                Timber.d("Sync: No dirty records to push for storeId='$storeId'")
                 return SyncResult.Success(0)
             }
-
-            Timber.d("Sync: Found ${dirtyEntities.size} dirty records to push")
 
             // 2. Map to Supabase format (resolve product names from catalog)
             val supabaseRecords = dirtyEntities.map { entity ->
@@ -144,15 +131,10 @@ class SyncRepositoryImpl @Inject constructor(
             // 3. Upsert to Supabase
             postgrest["active_stocks"].upsert(supabaseRecords)
 
-            Timber.d("Sync: Pushed ${dirtyEntities.size} records to Supabase")
-            Timber.tag("SYNC_SUCCESS").d("Subidos ${dirtyEntities.size} registros a Supabase")
-
             // 4. Mark as synced in Room
             val recordIds = dirtyEntities.map { entity -> entity.id }
             val now = Instant.now(Clock.systemUTC())
             stockDao.markAsSynced(recordIds, now)
-
-            Timber.d("Sync: Marked ${recordIds.size} records as synced")
 
             SyncResult.Success(dirtyEntities.size)
         } catch (e: Exception) {
@@ -178,8 +160,6 @@ class SyncRepositoryImpl @Inject constructor(
      * @return SyncResult indicating success/failure and counts
      */
     override suspend fun pullRemoteChanges(storeId: String, lastSyncedAt: Instant): SyncResult {
-        Timber.d("Sync: Pulling remote changes for storeId=$storeId since $lastSyncedAt")
-
         return try {
             // 1. Query Supabase for changes since last sync
             val lastSyncedAtStr = lastSyncedAt.toString()
@@ -195,11 +175,8 @@ class SyncRepositoryImpl @Inject constructor(
             val supabaseRecords = response.decodeList<SupabaseActiveStock>()
 
             if (supabaseRecords.isEmpty()) {
-                Timber.d("Sync: No remote changes to pull")
                 return SyncResult.Success(0)
             }
-
-            Timber.d("Sync: Found ${supabaseRecords.size} remote changes to pull")
 
             // 2. Apply changes to Room with conflict resolution
             var syncedCount = 0
@@ -215,25 +192,19 @@ class SyncRepositoryImpl @Inject constructor(
                             // Remote is newer - apply update
                             val updatedEntity = supabaseRecord.toEntity()
                             stockDao.update(updatedEntity)
-                            Timber.d("Sync: Remote wins conflict for batch ${supabaseRecord.id} (remote version ${supabaseRecord.version} > local ${localRecord.version})")
                             syncedCount++
-                        } else {
-                            // Local is newer or equal - skip
-                            Timber.d("Sync: Local wins or equal for batch ${supabaseRecord.id} (local version ${localRecord.version} >= remote ${supabaseRecord.version})")
                         }
+                        // Local is newer or equal - skip (do nothing)
                     } else {
                         // No local record - insert new
                         val newEntity = supabaseRecord.toEntity()
                         stockDao.insert(newEntity)
-                        Timber.d("Sync: Inserted new batch ${supabaseRecord.id}")
                         syncedCount++
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "Sync: Failed to apply remote change for batch ${supabaseRecord.id}")
                 }
             }
-
-            Timber.d("Sync: Applied $syncedCount remote changes to local database")
 
             SyncResult.Success(syncedCount)
         } catch (e: Exception) {

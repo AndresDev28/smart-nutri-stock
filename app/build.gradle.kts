@@ -65,9 +65,24 @@ android {
         jvmTarget = "17"
     }
 
+    sourceSets {
+        getByName("androidTest") {
+            assets.srcDirs("src/androidTest/assets")
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+            all {
+                it.jvmArgs("--add-opens", "java.base/java.lang.reflect=ALL-UNNAMED")
+            }
+        }
     }
 
     packaging {
