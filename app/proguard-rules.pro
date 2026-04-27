@@ -27,3 +27,8 @@
 -keep class dagger.hilt.** { *; }
 -keep class javax.inject.** { *; }
 -keep class * extends dagger.hilt.android.internal.managers.ViewComponentManager$FragmentContextWrapper
+
+# SLF4J is pulled in transitively by Supabase/Ktor. On Android, StaticLoggerBinder
+# is intentionally absent — SLF4J falls back silently to a no-op. R8 sees the
+# reference in LoggerFactory.bind() and flags it; this rule suppresses that warning.
+-dontwarn org.slf4j.impl.StaticLoggerBinder

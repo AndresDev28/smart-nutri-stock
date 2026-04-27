@@ -152,70 +152,10 @@ And tapping it opens HistoryScreen filtered by "Yellow"
 
 ---
 
-### 🟡 MEDIA (6): Autenticación (Login) & Sincronización Nube
-
-**Priority**: P2 - Medium  
-**Effort**: Very High (10-15 days)  
-**Dependencies**: Backend infrastructure decision (Supabase vs Firebase)
-
-#### Description
-
-Implement user authentication and cloud synchronization for multi-device support and audit trail.
-
-#### Requirements
-
-- [ ] Login screen with username/password
-- [ ] Session management (JWT tokens)
-- [ ] Cloud database sync (Supabase or Firebase Firestore)
-- [ ] Offline-first architecture (local Room as source of truth)
-- [ ] Background sync when online
-- [ ] Audit trail: track which user created/modified each batch
-- [ ] Multi-device support
-
-#### Technical Approach
-
-- **Option A: Supabase** (recommended for cost)
-  - Postgres database with Row Level Security
-  - Supabase Auth for authentication
-  - Real-time sync with Postgres Changes
-- **Option B: Firebase**
-  - Firestore for database
-  - Firebase Auth for authentication
-  - Cloud Firestore offline persistence
-
-#### Architecture Changes
-
-- Add `User` domain model
-- Add `userId` to `ActiveStockEntity`
-- Implement `AuthRepository` interface
-- Create `SyncManager` for offline/online sync
-- Add `LoginScreen` composable
-
-#### Acceptance Criteria
-
-```gherkin
-Given app is opened for first time
-When user enters credentials
-Then authentication succeeds
-And local data syncs with cloud
-
-Given device is offline
-When user makes changes
-Then changes are stored locally
-And sync when connection restored
-
-Given multiple devices with same account
-When batch is added on device A
-Then batch appears on device B after sync
-```
-
----
-
 ## Diseño Premium & UI (Priority 7)
 
 **Priority**: P3 - Design Excellence  
-**Effort**: Medium (5-7 days)  
-**Reference**: `image_40.png` (confirmed mock-up)
+**Effort**: Medium (5-7 days)
 
 ### El Logo 'Barcode Leaf'
 
@@ -306,7 +246,7 @@ res/
 
 - Feature #4: OCR de Fechas (COMPLETADO)
 - Feature #5: Notificaciones Push
-- Feature #6: Autenticación & Sync
+- Feature #6: Autenticación & Sync ✅ COMPLETADO
 - Estimated: 5-6 weeks
 
 ### Phase 2.4 - Premium UI (Parallel)
@@ -366,9 +306,11 @@ Action buttons implemented in `BatchCard` for YELLOW and RED/EXPIRED products. C
 **Status**: ✅ Implemented with high-precision date extraction
 
 #### Description
+
 Implemented automated expiry date extraction from product packaging using Google ML Kit Text Recognition, eliminating manual entry and reducing registration time.
 
 #### Technical Implementation
+
 - ✅ **DateExtractorUseCase**: Robust regex for DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, DD/MM/YY, MM/YY, MM/YYYY, and ISO YYYY-MM-DD.
 - ✅ **EU Regulation Compliance**: Automatic conversion of MM/YY and MM/YYYY formats to the end of the month using `YearMonth.atEndOfMonth()`.
 - ✅ **OcrCameraOverlay**: Custom CameraX implementation with ML Kit TextRecognizer and `DisposableEffect` for lifecycle-safe cleanup.
@@ -377,14 +319,17 @@ Implemented automated expiry date extraction from product packaging using Google
 - ✅ **UX/Robustness**: 5s timeout with graceful manual fallback ("No se detectó fecha. Ingrese manualmente.") and permission handling via `rememberLauncherForActivityResult`.
 
 #### Hotfixes Applied
+
 - ✅ **Camera Blackout Fix**: Resolved hardware lock by ensuring explicit `unbind()` before switching between barcode and OCR modes.
 - ✅ **Batch Separation Fix**: Implemented uniqueness logic (Same EAN + same date $\rightarrow$ SUM quantities; Same EAN + different date $\rightarrow$ NEW record).
 
 #### Test Coverage
+
 - ✅ 34 unit tests (21 for `DateExtractorUseCase` + 13 repository/integration tests).
 - ✅ Manual device testing PASSED on Samsung XCover7.
 
 #### Acceptance Criteria (VERIFIED ✅)
+
 ```gherkin
 Given user is adding a new batch
 When user taps "Escanear Fecha" button
@@ -453,6 +398,58 @@ Then CSV properly escapes fields per RFC 4180
 Given PDF export is selected
 When report is generated
 Then PDF shows professional table with semaphore color coding
+```
+
+---
+
+### ✅ COMPLETADA: Autenticación (Login) & Sincronización Nube
+
+**Completed**: 2026-04-27  
+**Version**: v2.7.0  
+**Status**: ✅ Implemented with Supabase Auth + Postgrest
+
+#### Description
+
+Implementation of user authentication and cloud synchronization for multi-device support and audit trail, ensuring data safety and coordination across store devices.
+
+#### Implemented Requirements
+
+- ✅ **Secure Auth**: Login screen with email/password, JWT session management via EncryptedSharedPreferences.
+- ✅ **Offline-First Sync**: Local Room as source of truth with background synchronization via SyncWorker.
+- ✅ **Auto-Login**: Session persistence and Auth Guard to prevent unauthorized access to Dashboard.
+- ✅ **Audit Trail**: `userId` and `storeId` injected into all `ActiveStockEntity` records.
+- ✅ **Orphan Cleanup**: Automatic claim of local records created before login.
+- ✅ **Multi-device Support**: Data consistency across devices via Supabase Postgrest upserts.
+
+#### Technical Implementation
+
+- ✅ **Supabase Stack**: GoTrue for Auth, Postgrest for Data, BOM 2.6.1 for AGP 8.2.2 compatibility.
+- ✅ **Database**: Room migration v5 → v6 adding sync columns (`userId`, `storeId`, `syncedAt`, `version`, `isDirty`).
+- ✅ **Worker**: `@HiltWorker` based `SyncWorker` with exponential backoff and connectivity constraints.
+- ✅ **Domain**: New UseCases (`LoginUseCase`, `LogoutUseCase`, `SyncDataUseCase`, `ClaimOrphanRecordsUseCase`).
+- ✅ **Security**: RLS (Row Level Security) enabled in Supabase to isolate data by store.
+
+#### Test Coverage
+
+- ✅ **113 tests passed** (Domain: 31, Integration: 42, UI: 21, WorkManager: 19).
+- ✅ **Device Validation**: Manual E2E and instrumented tests passed on Xiaomi 14T.
+- ✅ **Offline Resilience**: Verified data persistence and eventual sync after connection restoration.
+
+#### Acceptance Criteria (VERIFIED ✅)
+
+```gherkin
+Given user enters valid credentials
+When login is triggered
+Then authentication succeeds and local data syncs with cloud
+
+Given device is offline
+When user modifies a batch
+Then changes are stored locally (isDirty=true)
+And sync occurs automatically when connection is restored
+
+Given multiple devices with same account
+When batch is added on device A
+Then batch appears on device B after sync
 ```
 
 ---
