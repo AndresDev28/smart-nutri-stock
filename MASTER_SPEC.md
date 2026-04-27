@@ -1,10 +1,10 @@
 Este documento (SSOT) es el que deberás "alimentar" a cualquier agente de IA (como Cursor, Windsurf o el propio Claude/Gemini) cuando llegue el momento de generar el código, ya que contiene las reglas de negocio y la arquitectura de datos sin ambigüedades.
 
-# 📄 MASTER SPEC: Smart Nutri-Stock v2.5.0 (Decathlon Gandía)
+# 📄 MASTER SPEC: Smart Nutri-Stock v2.7.0 (Decathlon Gandía)
 
 **Tipo de Documento:** PRD & Data Architecture (Fuente Única de Verdad)
 **Propósito:** Contexto base para desarrollo SDD mediante agentes de IA.
-**Stack Objetivo:** Android Nativo, Kotlin, Jetpack Compose, Room (SQLite), Google ML Kit (Barcode), WorkManager (para tareas de fondo, no para semáforo), minSdk 26 (Optimized for Android 14 (API 34) on XCover7 devices).
+**Stack Objetivo:** Android Nativo, Kotlin, Jetpack Compose, Room (SQLite), Google ML Kit (Barcode + OCR), WorkManager, Supabase (Auth + Postgrest), minSdk 26 (Optimized for Android 14 (API 34) on XCover7 devices).
 
 ---
 
@@ -67,37 +67,36 @@ El sistema utiliza un patrón de repositorio único _offline-first_ con persiste
 
 1.  **Regla de Fecha (Conservadora - EU Retail):** El sistema implementa la extracción de múltiples formatos (DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, DD/MM/YY, MM/YY, MM/YYYY, ISO YYYY-MM-DD). Si el OCR extrae el formato `MM/YY` (ej. 07/26), la lógica de dominio **debe** transformarlo obligatoriamente al último día válido de ese mes (`31/07/2026`) para el cálculo de días restantes, usando `YearMonth.of(year, month).atEndOfMonth()`.
 2.  **Cálculo de Estado Dinámico (Semáforo):** Los estados se calculan en tiempo real mediante el `CalculateStatusUseCase` cada vez que se accede a la UI (Dashboard o Historia), asegurando una precisión del 100% basada en el reloj del sistema. No se requiere WorkManager ni actualizaciones programadas.
-3.  **Unicidad de Lote (Batch Uniqueness):** Un registro en `ActiveStock` es único por la combinación de (EAN + expiryDate). 
+3.  **Unicidad de Lote (Batch Uniqueness):** Un registro en `ActiveStock` es único por la combinación de (EAN + expiryDate).
     - Mismo EAN + misma fecha $\rightarrow$ Sumar cantidades al registro existente.
     - Mismo EAN + fecha diferente $\rightarrow$ Crear nuevo registro de lote.
 
 ---
 
-## 5. ALCANCE DEL MVP vs FASE 2
+## 5. ALCANCE DEL SISTEMA (MVP + CORE PHASE 2)
 
-### MVP v2.5.0 (Implementado y Verificado)
+### ✅ Implementado y Verificado (v2.7.0)
 
-El MVP actual incluye:
+El sistema ha evolucionado desde el MVP inicial integrando las capacidades críticas de la Fase 2:
 
-- ✅ Escaneo de códigos de barras (EAN) con registro de productos
-- ✅ OCR de Fechas con Cámara (Implementado en v2.5.0 via ML Kit Text Recognition)
-- ✅ Gestión de lotes con fechas de caducidad
-- ✅ Sistema de semáforo (Verde/Amarillo/Rojo/Caducado) con cálculo en tiempo real
-- ✅ Dashboard con contadores dinámicos
-- ✅ Pantalla de Historial con filtrado por estado
-- ✅ Cobertura de pruebas TDD (115+ tests unitarios)
-- ✅ Pipeline CI/CD con GitHub Actions
+- **Core Inventory:** Escaneo de códigos de barras, gestión de lotes (Upsert), sistema de semáforo y Dashboard dinámico.
+- **OCR de Fechas:** Extracción automática de fechas via ML Kit Text Recognition con normalización de formatos EU.
+- **CRUD Completo:** Edición de lotes y Borrado Lógico (Soft Delete) con funcionalidad de Undo.
+- **Auth & Cloud Sync:** Autenticación via Supabase Auth, persistencia de sesión y sincronización offline-first via SyncWorker.
+- **Notificaciones Push:** Alertas diarias programadas via WorkManager para lotes amarillos y rojos.
+- **Calidad:** Cobertura de pruebas TDD (150+ tests unitarios e instrumentados) y pipeline CI/CD.
 
-### Características Planificadas para Fase 2
+### 🟡 Características Pendientes (Phase 2.4+)
 
-Las siguientes funcionalidades están definidas en FUTURE_ROADMAP.md y NO son parte del MVP:
+Las siguientes funcionalidades están detalladas en `FUTURE_ROADMAP.md`:
 
-- ✅ **Edición y Borrado Completo (CRUD)** - Prioridad P0: Completado (Edición + Soft Delete con Undo en lugar de dialog)
-- 🟡 **Notificaciones Push (Alertas Locales)** - Prioridad P2: Notificaciones diarias de lotes por caducar y caducados
-- ✅ **OCR de Fechas con Cámara** - Prioridad P2: Completado en v2.5.0. Escaneo automático de fechas de caducidad mediante Google ML Kit Text Recognition.
+- **Diseño Premium & UI:** Implementación de la paleta de colores premium, logo 'Barcode Leaf' y micro-interacciones.
+- **E2E Validation:** Automatización de flujos completos en dispositivo físico Samsung XCover7.
+- **Advanced Analytics:** Integración de Firebase Analytics y Crashlytics.
+- **Accessibility:** Soporte para TalkBack y modo de alto contraste.
 
 Nota: La aplicación implementa un acceso secuencial a la cámara: el escáner de códigos de barras debe liberar el hardware (`unbind()`) antes de que el módulo OCR se active, evitando conflictos de acceso al recurso.
 
-Las herramientas de análisis de código que verifiquen el cumplimiento de este spec deben ignorar estas características como "faltantes", ya que están documentadas explícitamente como parte de la Fase 2 y NO del MVP v2.1.0.
+Las herramientas de análisis de código que verifiquen el cumplimiento de este spec deben considerar las funcionalidades de la sección "Implementado" como requerimientos base del sistema.
 
 ---
