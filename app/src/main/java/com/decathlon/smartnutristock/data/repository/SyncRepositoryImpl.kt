@@ -3,6 +3,7 @@ package com.decathlon.smartnutristock.data.repository
 import com.decathlon.smartnutristock.data.dao.ProductCatalogDao
 import com.decathlon.smartnutristock.data.dao.StockDao
 import com.decathlon.smartnutristock.data.entity.ActiveStockEntity
+import com.decathlon.smartnutristock.data.entity.ProductCatalogEntity
 import com.decathlon.smartnutristock.domain.model.Batch
 import com.decathlon.smartnutristock.domain.model.SyncResult
 import com.decathlon.smartnutristock.domain.repository.SyncRepository
@@ -185,6 +186,18 @@ class SyncRepositoryImpl @Inject constructor(
                 try {
                     // Check if local record exists
                     val localRecord = stockDao.findById(supabaseRecord.id)
+
+                    // UPSERT product catalog to ensure UI can display the product name
+                    // This fixes the "Producto desconocido" issue when pulling from cloud
+                    productCatalogDao.insertOrReplace(
+                        ProductCatalogEntity(
+                            ean = supabaseRecord.ean,
+                            name = supabaseRecord.product_name,
+                            packSize = 1, // Default pack size
+                            createdAt = System.currentTimeMillis(),
+                            createdBy = 0L // Synced from cloud, no local user
+                        )
+                    )
 
                     if (localRecord != null) {
                         // Conflict resolution: higher version wins
