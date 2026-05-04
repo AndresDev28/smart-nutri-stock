@@ -51,6 +51,9 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Debug APK
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: ./gradlew assembleDebug
 
       - name: Upload APK Artifact
