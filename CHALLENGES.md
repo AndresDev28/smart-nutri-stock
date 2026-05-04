@@ -383,9 +383,123 @@ The OutlinedTextField is value-controlled (state comes from ViewModel). In tests
 
 ---
 
+## 🐛 17. ColorScheme Extension Properties Cause Unresolved References in Compose
+
+### 🩺 The Symptom
+After defining status colors as `@Composable` extension properties on `ColorScheme` (e.g., `val ColorScheme.statusTeal: Color @Composable get() = StatusTeal`), the Kotlin compiler reported "Unresolved reference 'statusTeal'" in DashboardScreen.kt when accessing via `MaterialTheme.colorScheme.statusTeal`.
+
+### 🕵️‍♂️ Root Cause
+Compose's `ColorScheme` is a data class from Material 3. Extension properties with `@Composable get()` on external data classes can cause resolution issues depending on the Kotlin compiler version and Compose plugin. The `@Composable` annotation on extension property getters is not always reliably resolved across module boundaries or in all composable contexts.
+
+### 🛠️ The Solution
+Converted extension properties to standalone `@Composable` functions:
+```kotlin
+@Composable
+fun statusTeal(): Color = StatusTeal
+@Composable
+fun statusAmber(): Color = StatusAmber
+@Composable
+fun statusDeepRed(): Color = StatusDeepRed
+```
+Usage changed from `MaterialTheme.colorScheme.statusTeal` to `statusTeal()`. This is a pragmatic tradeoff — slightly less "theme-like" but 100% reliable compilation.
+
+### 🧠 Engram (Lesson for the Future)
+> **When adding custom semantic colors to Material 3's ColorScheme, prefer standalone `@Composable` functions over extension properties with `@Composable get()`.** Extension properties on library data classes can fail to resolve depending on compiler context. Functions are always resolved correctly and achieve the same goal: theme-aware, composable-scoped color access.
+
+---
+
+## 🐛 18. Compose HapticFeedbackType Lacks Standard Haptic Constants
+
+### 🩺 The Symptom
+The design spec called for `SHORT_CLICK` haptic on scan confirm and `DOUBLE_CLICK` on error. The imports `import androidx.compose.ui.hapticfeedback.HapticFeedbackConstants` and `import androidx.compose.foundation.LocalHapticFeedback` caused "Unresolved reference" compilation errors.
+
+### 🕵️‍♂️ Root Cause
+Jetpack Compose's `HapticFeedbackType` enum only provides `LongPress` and `TextHandleMove` — it does NOT include `SHORT_CLICK`, `DOUBLE_CLICK`, `CONFIRM`, or `REJECT`. These constants exist only in Android View's `android.view.HapticFeedbackConstants`. The Compose team intentionally limited the haptic API surface, forcing developers to fall back to the View API for granular haptic control.
+
+### 🛠️ The Solution
+Use the View-based API via Compose's `LocalView`:
+```kotlin
+import android.view.HapticFeedbackConstants
+import androidx.compose.ui.platform.LocalView
+
+val view = LocalView.current
+view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)  // scan success
+view.performHapticFeedback(HapticFeedbackConstants.REJECT)   // error/duplicate
+```
+`CONFIRM` and `REJECT` are the semantic equivalents of short click and double vibration in the View API.
+
+### 🧠 Engram (Lesson for the Future)
+> **For anything beyond basic `LongPress` haptics in Compose, use `LocalView.current.performHapticFeedback(HapticFeedbackConstants.XXX)` — NOT `LocalHapticFeedback`.** Compose's haptic API is intentionally limited. The View API provides `CONFIRM`, `REJECT`, `CLOCK_TICK`, and many more. This is a pragmatic bridge between Compose and the Android View system, not a hack.
+
+---
+
+## 🐛 19. Modifier.blur() Crashes on API < 31 (The XCover7 minSdk Trap)
+
+### 🩺 The Symptom
+The immersive scanner design called for `Modifier.blur(20.dp)` on the overlay edges. This worked perfectly on the Samsung XCover7 (Android 14, API 34) but would crash on any device running API < 31.
+
+### 🕵️‍♂️ Root Cause
+`Modifier.blur()` was introduced in Android 12 (API 31). The project's `minSdk` is 26, meaning the blur effect would crash on ~15% of supported devices. The compiler doesn't warn about this because `Modifier.blur()` is a Compose extension function, not a platform API — it doesn't trigger the standard `@RequiresApi` lint check.
+
+### 🛠️ The Solution
+Wrap blur in a version check with a visual fallback:
+```kotlin
+val blurModifier = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    Modifier.blur(20.dp)
+} else {
+    Modifier.background(Color.Black.copy(alpha = 0.4f))
+}
+```
+The fallback provides a semi-transparent dark overlay that achieves a similar visual effect (focuses attention on the center) without the blur.
+
+### 🧠 Engram (Lesson for the Future)
+> **When using `Modifier.blur()`, ALWAYS wrap in `Build.VERSION.SDK_INT >= Build.VERSION_CODES.S` (API 31).** The Compose blur modifier doesn't trigger `@RequiresApi` lint warnings because it's a Compose extension, not a platform API. Test on minSdk devices or emulators, not just your target device. For visual effects, always have a non-blur fallback that achieves the same UX goal.
+
+---
+
+## 🐛 20. Icon() Widget Destroys PNG Logo Colors (The Tint Trap)
+
+### 🩺 The Symptom
+The official app logo (a leaf with barcode stripes in blue-green gradients) appeared as a flat, single-color silhouette when rendered with `Icon(painter = painterResource(R.drawable.ic_app_logo))`. All gradient detail was lost.
+
+### 🕵️‍♂️ Root Cause
+Compose's `Icon()` composable automatically applies `LocalContentColor.current` as a tint filter over the painter. This is by design for monochraphic vector icons that should adapt to theme colors. But when used with a full-color PNG, the tint overlays all original colors, flattening everything into a single shade. There is no `tint = null` parameter that reliably works for complex PNG assets.
+
+### 🛠️ The Solution
+Use `Image()` instead of `Icon()` for full-color PNG assets:
+```kotlin
+// WRONG: Icon applies tint, destroys PNG colors
+Icon(painter = painterResource(R.drawable.ic_app_logo), contentDescription = null)
+
+// CORRECT: Image renders PNG with original colors
+Image(painter = painterResource(R.drawable.ic_app_logo), contentDescription = null)
+```
+Requires `import androidx.compose.foundation.Image` — a different namespace from `Icon` which comes from `material3`.
+
+### 🧠 Engram (Lesson for the Future)
+> **NEVER use `Icon()` for full-color PNG or complex vector assets.** `Icon()` is designed for monochromatic icons and applies a color tint by default. For logos, illustrations, and any asset with multiple colors or gradients, use `Image()` from `androidx.compose.foundation`. The import is easy to miss since `Icon` comes from `material3` while `Image` comes from `foundation` — a common source of "Unresolved reference" errors when switching.
+
+---
+
+## 🐛 21. Multiple AI Agents Creating Import Inconsistencies (The Orchestration Gap)
+
+### 🩺 The Symptom
+After 5 sub-agents sequentially modified different screen files, the project failed to compile with 9 "Unresolved reference" errors across NutriCard.kt, DashboardScreen.kt, and ScannerScreen.kt. Each agent had correctly implemented its assigned file but didn't know about the import conventions established by previous agents.
+
+### 🕵️‍♂️ Root Cause
+When using an orchestrated multi-agent workflow where different agents handle different files, each agent has a FRESH context with no knowledge of previous agents' decisions. Agent A created ColorScheme extension properties, Agent B imported standalone color vals, Agent C used Compose haptic API, Agent D used View haptic API. The orchestrator didn't enforce a shared import contract between agents.
+
+### 🛠️ The Solution
+1) After each batch of agent work, run a compilation verification pass (`./gradlew compileDebugKotlin`) to catch import mismatches immediately. 2) Create a "compilation fix" sub-agent that ONLY fixes imports without modifying logic. 3) Document accepted API patterns in the prompt context for subsequent agents (e.g., "Use statusTeal() function, NOT MaterialTheme.colorScheme.statusTeal").
+
+### 🧠 Engram (Lesson for the Future)
+> **When orchestrating multiple AI agents on the same codebase, ALWAYS run a compilation check after each batch and before the next.** Each agent starts with a blank context — they don't know what the previous agent decided. Maintain an evolving "API contract" document that gets included in every subsequent agent's prompt. The orchestrator must be the source of truth for cross-agent conventions, not the agents themselves.
+
+---
+
 ## 🚀 Architectural Conclusion
 
-Overcoming these 10 challenges has demonstrated that **Clean Architecture** isn't just about code organization — it's about **resilience**. By separating concerns into distinct layers (Domain, Data, Presentation), we were able to:
+Overcoming these 21 challenges has demonstrated that **Clean Architecture** isn't just about code organization — it's about **resilience**. By separating concerns into distinct layers (Domain, Data, Presentation), we were able to:
 
 - **Isolate failures**: When the notification didn't appear, we could test the Domain logic (status calculation) independently from the Data layer (notification building) and the Presentation layer (permission UI)
 - **Debug systematically**: The debug test button bypassed WorkManager entirely, proving the notification infrastructure worked while revealing the scheduling was the issue
@@ -400,4 +514,15 @@ The sync pipeline challenges (bugs 5–10) reinforced this resilience from a dif
 - **Schema verification is a prerequisite, not an afterthought**: Bug 10 proved that designing DTOs based on assumptions (matching the local Room schema) instead of verifying the remote database schema leads to guaranteed runtime failures. Always query the target schema first
 - **Naming collisions with third-party interfaces create subtle DI bugs**: Bug 8 showed that sharing a class name with a library interface confuses Hilt's dependency resolution. Prefixing implementations with their distinguishing characteristic (`EncryptedSessionManager`) prevents this entire category of issues
 
-The key takeaway: **Build your architecture so that each layer can be tested independently.** When a Xiaomi device kills your Worker at 06:00 AM, you need to know immediately whether the problem is the Worker, the notification, the permission, or the channel registration. When Supabase rejects your sync, you need to know whether it's the storeId, the schema, the auth, or the network. Clean Architecture gave us that diagnostic precision across all 10 challenges.
+The UI/Presentation layer challenges (bugs 11–21) demonstrated that Compose's declarative paradigm introduces its own class of pitfalls:
+
+- **Compose testing requires explicit test tags**: Bug 14 showed that text-based selectors (`onNodeWithText()`) are fragile when the same text appears in multiple UI elements. Adding `.testTag()` to interactive elements and using `onNodeWithTag()` makes tests deterministic
+- **Compose test lifecycle is rigid**: Bug 15 revealed that `setContent()` can only be called once per test method — the framework enforces a one-composition-per-test lifecycle. This requires separate test methods for each scenario rather than looping through cases
+- **Mocked ViewModels break visual verification**: Bug 16 proved that when testing value-controlled fields like `OutlinedTextField`, mocked ViewModels return frozen state. The solution is to verify INTERACTIONS (ViewModel method calls) via `verify()` rather than VISUAL STATE (displayed text)
+- **Compose APIs have hidden platform requirements**: Bug 19 showed that `Modifier.blur()` requires API 31+, but the compiler doesn't warn because it's a Compose extension, not a platform API. Always wrap in `Build.VERSION.SDK_INT` checks with fallback implementations
+- **Compose widgets have surprising default behaviors**: Bug 20 revealed that `Icon()` applies a color tint by default, destroying PNG asset colors. Using `Image()` instead preserves original colors — the import difference (`material3` vs `foundation`) is easy to miss
+- **Extension properties on library classes are unreliable**: Bug 17 showed that `@Composable` extension properties on Material 3's `ColorScheme` fail to resolve depending on compiler context. Standalone `@Composable` functions (`statusTeal()`) are more reliable
+- **Compose's haptic API is intentionally limited**: Bug 18 demonstrated that `LocalHapticFeedback` only provides `LongPress`, not the full spectrum of Android haptics. The pragmatic solution is using `LocalView.current.performHapticFeedback(HapticFeedbackConstants.XXX)` to access View-based haptic constants
+- **Multi-agent orchestration creates import drift**: Bug 21 showed that when multiple AI agents work on the same codebase sequentially, each with fresh context, they introduce import inconsistencies. The solution is running compilation checks after each batch and maintaining an evolving "API contract" document
+
+The key takeaway: **Build your architecture so that each layer can be tested independently.** When a Xiaomi device kills your Worker at 06:00 AM, you need to know immediately whether the problem is the Worker, the notification, the permission, or the channel registration. When Supabase rejects your sync, you need to know whether it's the storeId, the schema, the auth, or the network. When multiple agents create import conflicts, you need an orchestrator that enforces shared conventions. Clean Architecture gave us that diagnostic precision across all 21 challenges.

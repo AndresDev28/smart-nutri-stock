@@ -2,6 +2,7 @@ package com.decathlon.smartnutristock.presentation.ui.scanner
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -53,8 +55,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -65,6 +70,7 @@ import androidx.core.content.ContextCompat
 import android.util.Log
 import kotlinx.coroutines.launch
 import com.decathlon.smartnutristock.domain.usecase.DateExtractorUseCase
+import com.decathlon.smartnutristock.presentation.ui.components.PremiumButton
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -104,6 +110,27 @@ fun ScannerScreen(
     val expiryDate by viewModel.expiryDate.collectAsState()
     val quantity by viewModel.quantity.collectAsState()
     val currentProductInfo by viewModel.currentProductInfo.collectAsState()
+
+    // Haptic feedback for scan confirmation
+    val view = LocalView.current
+
+    // Trigger haptic feedback when EAN is detected (new scan)
+    LaunchedEffect(currentEan) {
+        val ean = currentEan
+        if (ean != null && ean.isNotEmpty()) {
+            // CONFIRM on valid EAN detection
+            view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+        }
+    }
+
+    // Trigger haptic feedback on error
+    LaunchedEffect(errorMessage) {
+        val errorMsg = errorMessage
+        if (errorMsg != null && errorMsg.isNotEmpty()) {
+            // REJECT on error/duplicate
+            view.performHapticFeedback(HapticFeedbackConstants.REJECT)
+        }
+    }
 
     // Quantity input state (local)
     var quantityInput by remember { mutableStateOf("") }
@@ -230,7 +257,7 @@ fun ScannerScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Camera Preview
+            // Camera Preview with Immersive Blur Overlay
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -239,6 +266,7 @@ fun ScannerScreen(
                 contentAlignment = Alignment.Center
             ) {
                 if (isCameraActive) {
+                    // Camera preview
                     AndroidView(
                         factory = { ctx ->
                             PreviewView(ctx).apply {
@@ -248,6 +276,63 @@ fun ScannerScreen(
                         },
                         modifier = Modifier.fillMaxSize()
                     )
+
+                    // Blur Guardrail — REQUIRED
+                    // API 31+ (Android 12+): Use Modifier.blur()
+                    // API < 31: Fallback to solid dark overlay
+                    val blurModifier = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        Modifier.blur(20.dp)
+                    } else {
+                        Modifier.background(Color.Black.copy(alpha = 0.4f))
+                    }
+
+                    // Blur overlay with clear center window for barcode scanning
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        // Top edge blur (above center)
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .fillMaxWidth()
+                                .height(150.dp)
+                                .then(blurModifier)
+                        )
+
+                        // Bottom edge blur (below center)
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(150.dp)
+                                .then(blurModifier)
+                        )
+
+                        // Left edge blur (left of center window - ~15%)
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .width(60.dp)
+                                .fillMaxHeight()
+                                .then(blurModifier)
+                        )
+
+                        // Right edge blur (right of center window - ~15%)
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .width(60.dp)
+                                .fillMaxHeight()
+                                .then(blurModifier)
+                        )
+
+                        // Center scan window (70% of screen width) - clear for barcode scanning
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .width(280.dp) // 70% of 400dp screen width
+                                .fillMaxHeight()
+                                .background(Color.Transparent)
+                        )
+                    }
                 } else {
                     Text(
                         text = "Cámara no iniciada",
@@ -564,7 +649,7 @@ private fun ProductInfoCard(productName: String, packSize: Int) {
             .padding(16.dp),
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF4CAF50) // Green
+            containerColor = MaterialTheme.colorScheme.primary
         )
     ) {
         Column(
@@ -629,7 +714,7 @@ private fun SuccessCard(message: String) {
             .padding(16.dp),
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF4CAF50) // Green
+            containerColor = MaterialTheme.colorScheme.primary
         )
     ) {
         Column(

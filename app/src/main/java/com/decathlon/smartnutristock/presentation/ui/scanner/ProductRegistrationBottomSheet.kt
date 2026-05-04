@@ -1,6 +1,7 @@
 package com.decathlon.smartnutristock.presentation.ui.scanner
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,8 +14,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -34,8 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -44,16 +48,13 @@ import androidx.compose.ui.unit.sp
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.core.content.ContextCompat
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.ui.platform.LocalContext
 import com.decathlon.smartnutristock.domain.model.Batch
 import com.decathlon.smartnutristock.domain.usecase.DateExtractorUseCase
+import com.decathlon.smartnutristock.presentation.ui.components.PremiumButton
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -222,32 +223,35 @@ fun ProductRegistrationBottomSheet(
 
     Box {
         Surface(
-            tonalElevation = 8.dp,
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+            tonalElevation = 0.dp, // Camera preview visible behind sheet
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant
         ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(500.dp) // 40-50% of screen height for premium immersion
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             // Title based on mode
             Text(
                 text = if (mode == BottomSheetMode.CREATE) "Registrar Nuevo Producto" else "Editar Lote",
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                fontSize = 20.sp
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // EAN field (read-only)
+            // EAN field (read-only) - JetBrains Mono for data codes
             OutlinedTextField(
-                value = ean,
+                value = "EAN: $ean",
                 onValueChange = { },
-                label = { Text("Código EAN") },
+                label = { Text("Código de Barras") },
                 enabled = false,
                 readOnly = true,
+                textStyle = MaterialTheme.typography.labelMedium, // JetBrains Mono
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("ean_field"),
@@ -301,7 +305,7 @@ fun ProductRegistrationBottomSheet(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // Quantity (EDIT mode only)
+            // Quantity (EDIT mode only) - styled with MaterialTheme.shapes.medium
             if (mode == BottomSheetMode.EDIT) {
                 OutlinedTextField(
                     value = quantity,
@@ -314,6 +318,7 @@ fun ProductRegistrationBottomSheet(
                     isError = quantityError != null,
                     supportingText = quantityError?.let { { Text(it) } },
                     singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(focusRequester)
@@ -342,6 +347,7 @@ fun ProductRegistrationBottomSheet(
                         label = { Text("Fecha de vencimiento") },
                         isError = expiryDateError != null,
                         supportingText = expiryDateError?.let { { Text(it) } },
+                        enabled = false,  // Prevent keyboard, force date picker
                         readOnly = true,
                         singleLine = true,
                         modifier = Modifier
@@ -388,25 +394,26 @@ fun ProductRegistrationBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Cancel button (bottom-left)
+                // Cancel button (bottom-left) - 48dp minimum height
                 TextButton(
                     onClick = onDismiss,
                     modifier = Modifier
                         .weight(1f)
-                        .height(56.dp), // Thumb zone!
+                        .height(56.dp), // Thumb zone (exceeds 48dp minimum)
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.onSurface
                     )
                 ) {
                     Text(
                         text = "Cancelar",
-                        fontSize = 16.sp,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium
                     )
                 }
 
-                // Save button (bottom-right)
-                Button(
+                // Save button (bottom-right) - PremiumButton with 56dp minimum height
+                PremiumButton(
+                    text = if (mode == BottomSheetMode.CREATE) "Registrar" else "Confirmar Lote",
                     onClick = {
                         if (isFormValid) {
                             when (mode) {
@@ -440,16 +447,9 @@ fun ProductRegistrationBottomSheet(
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(56.dp) // Thumb zone!
                         .testTag("save_button"),
                     enabled = isFormValid
-                ) {
-                    Text(
-                        text = if (mode == BottomSheetMode.CREATE) "Registrar" else "Guardar cambios",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                )
             }
         }
 

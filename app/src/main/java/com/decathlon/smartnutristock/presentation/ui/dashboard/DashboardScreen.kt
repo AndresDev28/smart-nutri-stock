@@ -19,69 +19,81 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import android.widget.Toast
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Card
-import androidx.compose.material3.Icon
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import kotlinx.coroutines.launch
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.decathlon.smartnutristock.data.worker.SyncScheduler
 import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
+import com.decathlon.smartnutristock.domain.model.Batch
 import com.decathlon.smartnutristock.presentation.permission.NotificationPermissionHandler
 import com.decathlon.smartnutristock.presentation.permission.NotificationPermissionHandler.RationaleDialogState
 import com.decathlon.smartnutristock.presentation.permission.NotificationPermissionHandler.RationaleDialogState.NotShowing
 import com.decathlon.smartnutristock.presentation.permission.NotificationPermissionHandler.RationaleDialogState.Showing
 import com.decathlon.smartnutristock.presentation.permission.NotificationRationaleDialog
+import com.decathlon.smartnutristock.presentation.ui.components.NutriCard
+import com.decathlon.smartnutristock.presentation.ui.components.PremiumButton
+import com.decathlon.smartnutristock.presentation.ui.components.EmptyState
+import com.decathlon.smartnutristock.presentation.ui.components.ShimmerCard
+import com.decathlon.smartnutristock.presentation.ui.theme.statusTeal
+import com.decathlon.smartnutristock.presentation.ui.theme.statusAmber
+import com.decathlon.smartnutristock.presentation.ui.theme.statusDeepRed
 import com.decathlon.smartnutristock.R
 
 /**
- * Dashboard Screen with Semaphore Counters.
+ * Dashboard Screen with Premium UI Design.
  *
  * Features:
- * - Displays 3 semaphore counters (green, yellow, red)
- * - Shows total products count
- * - Shows loading spinner while fetching
- * - Shows error message if fetch fails
- * - Uses theme colors from CalculateStatusUseCase:
- *   🔴 Red: #FF4444 (expired, days ≤ 0)
- *   🟡 Yellow: #FFC107 (warning, 1-7 days)
- *   🟢 Green: #4CAF50 (safe, 8+ days)
+ * - Displays 3 summary cards (GREEN/AMBER/RED counts) with premium styling
+ * - Shows product list with NutriCard components
+ * - Shows empty state with motivational message when no products
+ * - Shows shimmer loading while fetching data
+ * - Quick Scan button with PremiumButton in bottom thumb zone
+ * - Ver Historial button for navigation
+ * - Total products count
+ * - Uses theme colors via MaterialTheme.colorScheme.statusTeal/Amber/DeepRed
+ *
+ * SSOT: All status logic comes from CalculateStatusUseCase (domain layer).
+ * UI renders state, never calculates status.
  *
  * Performance:
- * - LazyColumn for performance
- * - CircularProgressIndicator for loading state
+ * - LazyColumn with keys (batchId) for smooth scrolling
+ * - ShimmerLoading placeholders during sync
  * - Auto-refresh on app resume
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -139,6 +151,7 @@ fun DashboardScreen(
 
     // Collect UI state from ViewModel
     val uiState by viewModel.uiState.collectAsState()
+    val userEmail by viewModel.userEmail.collectAsState()
 
     LaunchedEffect(Unit) {
         // Auto-refresh when screen comes into view
@@ -214,13 +227,15 @@ fun DashboardScreen(
                 }
 
                 is DashboardUiState.Success -> {
-                    // Show counters
+                    // Show counters and product list
                     DashboardContent(
                         counters = (uiState as DashboardUiState.Success).counters,
+                        batches = (uiState as DashboardUiState.Success).batches,
                         navController = navController,
                         cameraPermissionGranted = cameraPermissionGranted,
                         cameraPermissionLauncher = cameraPermissionLauncher,
-                        context = context
+                        context = context,
+                        userEmail = userEmail
                     )
                 }
 
@@ -234,205 +249,294 @@ fun DashboardScreen(
 }
 
 /**
- * Dashboard content with semaphore counters.
+ * Dashboard content with premium UI design.
  * Optimized for thumb zone on Samsung XCover7.
  */
 @Composable
 private fun DashboardContent(
     counters: SemaphoreCounters,
+    batches: List<Batch>,
     navController: NavController,
     cameraPermissionGranted: Boolean,
     cameraPermissionLauncher: androidx.activity.result.ActivityResultLauncher<String>,
-    context: Context
+    context: Context,
+    userEmail: String?
 ) {
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+            .fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Title
-        Text(
-            text = "Semáforo de Inventario",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Semaphore Counters Row
+        // T3.2: Premium Header with Logo and Dynamic Greeting
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Official App Logo
+            androidx.compose.foundation.Image(
+                painter = painterResource(id = R.drawable.ic_app_logo),
+                contentDescription = "Smart Nutri-Stock Logo",
+                modifier = Modifier.size(48.dp)
+            )
+
+            Column {
+                // Dynamic greeting with user email
+                Text(
+                    text = if (userEmail != null) {
+                        "Hola, ${userEmail.substringBefore("@")}"
+                    } else {
+                        "Hola"
+                    },
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                // App name as subtitle
+                Text(
+                    text = "Smart Nutri-Stock",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // T3.3: Summary Cards Row (Premium counters with elevation)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Green Counter
-            SemaphoreCounter(
-                label = "Productos Seguros",
+            SummaryCard(
                 count = counters.green,
-                color = Color(0xFF4CAF50), // Green from CalculateStatusUseCase
-                emoji = "🟢"
+                label = "Stock Óptimo",
+                statusColor = statusTeal(),
+                modifier = Modifier.weight(1f)
             )
 
             // Yellow Counter
-            SemaphoreCounter(
-                label = "Por Vencer",
+            SummaryCard(
                 count = counters.yellow,
-                color = Color(0xFFFFC107), // Yellow from CalculateStatusUseCase
-                emoji = "🟡"
+                label = "Por Vencer",
+                statusColor = statusAmber(),
+                modifier = Modifier.weight(1f)
             )
 
             // Red Counter
-            SemaphoreCounter(
-                label = "Expirados",
+            SummaryCard(
                 count = counters.expired,
-                color = Color(0xFFFF4444), // Red from CalculateStatusUseCase
-                emoji = "🔴"
-            )
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Scan Product Button
-        Button(
-            onClick = {
-                if (cameraPermissionGranted) {
-                    // Permission already granted, navigate to scanner
-                    navController.navigate("scanner")
-                } else {
-                    // Request camera permission
-                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp) // Thumb zone optimized for XCover7
-                .padding(horizontal = 16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary
-            )
-        ) {
-            Text(
-                text = "Escanear Producto",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                label = "Expirados",
+                statusColor = statusDeepRed(),
+                modifier = Modifier.weight(1f)
             )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // History Button
-        Button(
-            onClick = {
-                navController.navigate("history")
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp) // Thumb zone optimized for XCover7
-                .padding(horizontal = 16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.secondary
-            )
-        ) {
-            Text(
-                text = "Ver Historial",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+        // T3.5: Product List with NutriCards
+        if (batches.isEmpty()) {
+            // T3.6: Empty State
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                EmptyState(
+                    message = "Listo para la recepción de hoy",
+                    subtitle = "Escanea tu primer producto para comenzar"
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        } else {
+            // LazyColumn with NutriCards
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(
+                    items = batches,
+                    key = { it.id }  // Critical: use batchId for performance
+                ) { batch ->
+                    NutriCard(
+                        productName = batch.name ?: "Producto desconocido",
+                        ean = batch.ean,
+                        quantity = batch.quantity,
+                        expiryDate = formatExpiryDate(batch.expiryDate),
+                        status = batch.status
+                    )
+                }
+            }
         }
 
-
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Total Products Count
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = MaterialTheme.shapes.large,
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 2.dp
             )
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
+                    .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = "Total de Productos",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
                     text = "${counters.total}",
-                    style = MaterialTheme.typography.displayLarge,
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // T3.4: Quick Scan Epicenter Button (PremiumButton in bottom zone)
+        PremiumButton(
+            text = "Escanear Producto",
+            icon = Icons.Default.QrCodeScanner,
+            onClick = {
+                if (cameraPermissionGranted) {
+                    navController.navigate("scanner")
+                } else {
+                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                }
+            },
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // "Ver Historial" button (OutlinedButton - secondary action)
+        OutlinedButton(
+            onClick = { navController.navigate("history") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .padding(horizontal = 16.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Default.Inventory2,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Ver Historial",
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
 /**
- * Individual semaphore counter component.
+ * SummaryCard - Premium counter card with bubble effect.
  *
  * Features:
- * - Circular background with theme color
- * - Count number in large font
- * - Optimized for thumb zone (56dp minimum)
+ * - 64dp bubble with 10% alpha background circle
+ * - Count in Bold 24sp at 100% color
+ * - Label in bodySmall
+ * - Uses theme colors (no hardcoded colors)
  */
 @Composable
-private fun SemaphoreCounter(
-    label: String,
+private fun SummaryCard(
     count: Int,
-    color: Color,
-    emoji: String
+    label: String,
+    statusColor: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .width(100.dp)
-            .height(120.dp) // Thumb zone optimized
+    Card(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        )
     ) {
-        // Background circle
-        Box(
+        Column(
             modifier = Modifier
-                .size(60.dp)
-                .background(color = color, shape = CircleShape),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Count number
+            // Bubble effect: 64dp box with 10% alpha background circle
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .background(
+                        color = statusColor.copy(alpha = 0.1f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = count.toString(),
+                    style = TextStyle(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 24.sp
+                    ),
+                    color = statusColor
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Label
             Text(
-                text = "$count",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Emoji label
-        Text(
-            text = emoji,
-            style = MaterialTheme.typography.titleMedium
-        )
-
-        // Label
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-            modifier = Modifier.padding(horizontal = 4.dp)
-        )
     }
+}
+
+/**
+ * Format expiry date from Instant to display string.
+ */
+private fun formatExpiryDate(expiryDate: java.time.Instant): String {
+    val formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    return expiryDate.atZone(java.time.ZoneId.systemDefault()).format(formatter)
 }
 
 /**

@@ -1,11 +1,6 @@
 package com.decathlon.smartnutristock.presentation.ui.scanner
 
 import android.app.Application
-import android.content.Context
-import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.decathlon.smartnutristock.data.entity.ProductCatalogEntity
@@ -62,21 +57,11 @@ sealed class BatchInputStep {
  */
 @HiltViewModel
 class ScannerViewModel @Inject constructor(
-    private val application: Application,  // Add Application context
     private val productRepository: ProductRepository,
     private val registerProductUseCase: RegisterProductUseCase,
     private val upsertStockUseCase: UpsertStockUseCase,
     private val calculateStatusUseCase: CalculateStatusUseCase
 ) : ViewModel() {
-
-    private val vibrator by lazy {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            application.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-        } else {
-            @Suppress("DEPRECATION")
-            application.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        }
-    }
 
     // Camera state
     private val _isCameraActive = MutableStateFlow(false)
@@ -148,7 +133,7 @@ class ScannerViewModel @Inject constructor(
             return
         }
 
-        vibrate()  // Haptic feedback
+        // Haptic feedback is now triggered in UI layer via LocalHapticFeedback
 
         viewModelScope.launch {
             _currentEan.value = ean
@@ -351,23 +336,5 @@ class ScannerViewModel @Inject constructor(
         _successMessage.value = null
         _isLoading.value = false
         resetBatchInputState()
-    }
-
-    /**
-     * Trigger haptic feedback when barcode is detected.
-     * Short vibration (50ms) for tactile feedback.
-     */
-    private fun vibrate() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // API 31+ (Android 12): Use VibratorManager
-            val vibratorManager = vibrator as VibratorManager
-            vibratorManager.defaultVibrator.vibrate(
-                VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE)
-            )
-        } else {
-            // API < 31: Use deprecated Vibrator
-            @Suppress("DEPRECATION")
-            (vibrator as Vibrator).vibrate(50)
-        }
     }
 }
