@@ -12,9 +12,9 @@ Este documento (SSOT) es el que deberás "alimentar" a cualquier agente de IA (c
 
 Aplicación interna B2B para optimizar el control de caducidades en la sección de Nutrición.
 
-- **Volumen a gestionar:** +2.600 unidades/mes.
-- **Facturación del Universo:** ~25.000 €/mes (Datos Reales Enero 2026).
-- **Problema:** Revisión manual lenta (16h/mes) y pérdida de producto por caducidad no detectada (estimado 2% merma = ~500€/mes).
+- **Volumen a gestionar:** Cada tienda tendrá su gestión y control específico (se creará dinámicamente la BD de los productos suceptibles a caducar).
+- **Facturación del Universo:** ~25.000 €/mes (Datos Reales Enero 2026 Decathlon Gandía).
+- **Problema:** Revisión manual lenta (16h/mes) y pérdida de producto por caducidad no detectada (estimado 2% merma = ~100-300€/mes en Decathlon Gandía).
 - **Solución:** Digitalización híbrida (EAN + OCR) con sistema de alertas por "Semáforo".
 - **ROI Esperado:** Recuperación estimada de 360€/mes en margen mediante acción comercial anticipada y liberación de tiempo operativo.
 
@@ -37,9 +37,9 @@ Aplicación interna B2B para optimizar el control de caducidades en la sección 
 - **FR-03 (Fallback Manual):** Formulario UI completo para introducir EAN, Nombre y Fecha (vía DatePicker) si el hardware de cámara falla.
 - **FR-04 (Gestión de Lotes):** Lógica de "Upsert". Si se escanea un EAN con una fecha que ya existe en el stock activo, se actualiza la cantidad (`Update`) en lugar de crear un duplicado (`Insert`).
 - **FR-05 (Dashboard Semáforo):** Vista principal con contadores dinámicos:
-  - 🟢 **Verde:** (>3 meses)
-  - 🟡 **Amarillo:** (<=30 días)
-  - 🔴 **Rojo:** (<=15 días)
+  - 🟢 **Verde:** (>7 días)
+  - 🟡 **Amarillo:** (<=7 días)
+  - 🔴 **Rojo:** (=0 días)
 
 ---
 
@@ -84,13 +84,13 @@ El sistema ha evolucionado desde el MVP inicial integrando las capacidades crít
 - **CRUD Completo:** Edición de lotes y Borrado Lógico (Soft Delete) con funcionalidad de Undo.
 - **Auth & Cloud Sync:** Autenticación via Supabase Auth, persistencia de sesión y sincronización offline-first via SyncWorker.
 - **Notificaciones Push:** Alertas diarias programadas via WorkManager para lotes amarillos y rojos.
+- **Diseño Premium & UI:** Implementación de la paleta de colores premium "Inventario Vivo", logo 'Barcode Leaf', tipografía Plus Jakarta Sans / JetBrains Mono y componentes de firma interactivos.
 - **Calidad:** Cobertura de pruebas TDD (150+ tests unitarios e instrumentados) y pipeline CI/CD.
 
-### 🟡 Características Pendientes (Phase 2.4+)
+### 🟡 Características Pendientes (Phase 2.5+)
 
 Las siguientes funcionalidades están detalladas en `FUTURE_ROADMAP.md`:
 
-- **Diseño Premium & UI:** Implementación de la paleta de colores premium, logo 'Barcode Leaf' y micro-interacciones.
 - **E2E Validation:** Automatización de flujos completos en dispositivo físico Samsung XCover7.
 - **Advanced Analytics:** Integración de Firebase Analytics y Crashlytics.
 - **Accessibility:** Soporte para TalkBack y modo de alto contraste.

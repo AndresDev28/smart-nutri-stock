@@ -70,11 +70,19 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import com.decathlon.smartnutristock.domain.model.Batch
+import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
+import com.decathlon.smartnutristock.domain.model.WorkflowAction
 import com.decathlon.smartnutristock.domain.export.ExportFormat
+import com.decathlon.smartnutristock.presentation.ui.components.EmptyState
+import com.decathlon.smartnutristock.presentation.ui.components.NutriCard
+import com.decathlon.smartnutristock.presentation.ui.components.ShimmerCard
 import com.decathlon.smartnutristock.presentation.ui.history.ExportState
 import com.decathlon.smartnutristock.presentation.ui.history.ExportFormatDialog
 import com.decathlon.smartnutristock.presentation.ui.scanner.BottomSheetMode
 import com.decathlon.smartnutristock.presentation.ui.scanner.ProductRegistrationBottomSheet
+import com.decathlon.smartnutristock.presentation.ui.theme.StatusTeal
+import com.decathlon.smartnutristock.presentation.ui.theme.StatusAmber
+import com.decathlon.smartnutristock.presentation.ui.theme.StatusDeepRed
 import kotlinx.coroutines.launch
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -260,7 +268,10 @@ fun HistoryScreen(
 
                         if (batches.isEmpty()) {
                             // Show empty state
-                            EmptyState()
+                            EmptyState(
+                                message = "No hay lotes",
+                                subtitle = "Los lotes escaneados aparecerán aquí"
+                            )
                         } else {
                             // Show batch list
                             BatchList(
@@ -331,13 +342,14 @@ private fun BatchList(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(
             items = batches,
             key = { it.id }
         ) { batch ->
-            BatchCard(
+            BatchCardWithActions(
                 batch = batch,
                 onEditClick = onEditClick,
                 onDeleteClick = onDeleteClick,
@@ -353,14 +365,14 @@ private fun BatchList(
 }
 
 /**
- * Individual batch card component.
+ * Individual batch card component with NutriCard and action buttons.
  * Thumb zone optimized (minimum 56dp height).
  * Uses pre-calculated status from Batch model to prevent recomposition loops.
  * Includes three-dot menu for edit and delete actions.
  * Shows action buttons for YELLOW and RED batches only.
  */
 @Composable
-private fun BatchCard(
+private fun BatchCardWithActions(
     batch: Batch,
     onEditClick: (Batch) -> Unit,
     onDeleteClick: (Batch) -> Unit,
@@ -368,229 +380,169 @@ private fun BatchCard(
 ) {
     val status = batch.status
 
-    val (statusColor, statusText) = when (status) {
-        com.decathlon.smartnutristock.domain.model.SemaphoreStatus.GREEN -> {
-            Pair(Color(0xFF4CAF50), "Seguro")
-        }
-        com.decathlon.smartnutristock.domain.model.SemaphoreStatus.YELLOW -> {
-            Pair(Color(0xFFFFC107), "Por vencer")
-        }
-        com.decathlon.smartnutristock.domain.model.SemaphoreStatus.EXPIRED -> {
-            Pair(Color(0xFFFF4444), "Expirado")
-        }
+    val statusText = when (status) {
+        SemaphoreStatus.GREEN -> "Seguro"
+        SemaphoreStatus.YELLOW -> "Por vencer"
+        SemaphoreStatus.EXPIRED -> "Expirado"
+    }
+
+    val statusColor = when (status) {
+        SemaphoreStatus.GREEN -> StatusTeal
+        SemaphoreStatus.YELLOW -> StatusAmber
+        SemaphoreStatus.EXPIRED -> StatusDeepRed
     }
 
     // Determine if action buttons should be shown (YELLOW or RED only)
-    val showActionButtons = status == com.decathlon.smartnutristock.domain.model.SemaphoreStatus.YELLOW ||
-            status == com.decathlon.smartnutristock.domain.model.SemaphoreStatus.EXPIRED
+    val showActionButtons = status == SemaphoreStatus.YELLOW ||
+            status == SemaphoreStatus.EXPIRED
 
     // Format expiry date for display
     val expiryDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-        .withZone(java.time.ZoneId.of("UTC"))
+        .withZone(ZoneId.of("UTC"))
     val expiryDateText = expiryDateFormatter.format(batch.expiryDate)
 
     // Dropdown menu state
     var expanded by remember { mutableStateOf(false) }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+    Column {
+        // NutriCard for main display
+        Box {
+            NutriCard(
+                productName = batch.name ?: "Producto desconocido",
+                ean = batch.ean,
+                quantity = batch.quantity,
+                expiryDate = expiryDateText,
+                status = status,
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Three-dot menu (48dp tap target for XCover7) positioned on top-right
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(48.dp)
             ) {
-                Column(
-                    modifier = Modifier.weight(1f)
+                IconButton(
+                    onClick = { expanded = true },
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    Text(
-                        text = batch.name ?: "Producto desconocido",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "EAN: ${batch.ean}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Más opciones",
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
-                // Status indicator
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(statusColor, shape = CircleShape)
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = statusColor,
-                    fontWeight = FontWeight.Medium
-                )
-
-                // Three-dot menu (48dp tap target for XCover7)
-                Box(modifier = Modifier.size(48.dp)) {
-                    IconButton(
-                        onClick = { expanded = true },
-                        modifier = Modifier
-                            .fillMaxSize()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Más opciones",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    // Dropdown menu
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        // Edit option
-                        DropdownMenuItem(
-                            text = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = null
-                                    )
-                                    Text("Editar")
-                                }
-                            },
-                            onClick = {
-                                onEditClick(batch)
-                                expanded = false
+                // Dropdown menu
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    // Edit option
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null
+                                )
+                                Text(
+                                    "Editar",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
                             }
-                        )
-
-                        // Delete option
-                        DropdownMenuItem(
-                            text = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = null
-                                    )
-                                    Text("Eliminar")
-                                }
-                            },
-                            onClick = {
-                                onDeleteClick(batch)
-                                expanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                batch.packSize?.let {
-                    Text(
-                        text = "Pack: ${it}g",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                }
-                Text(
-                    text = "Cantidad: ${batch.quantity}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-                Text(
-                    text = "Vence: $expiryDateText",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-            }
-
-            // Action buttons (only for YELLOW and RED batches)
-            if (showActionButtons) {
-                Spacer(modifier = Modifier.height(12.dp))
-
-                when {
-                    // CASE 1: RED/EXPIRED + PENDING → Only "Retirar" button (NO discount)
-                    status == com.decathlon.smartnutristock.domain.model.SemaphoreStatus.EXPIRED &&
-                    batch.actionTaken == com.decathlon.smartnutristock.domain.model.WorkflowAction.PENDING -> {
-                        FilledTonalButton(
-                            onClick = { onToggleActionClick(batch) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 48.dp)
-                        ) {
-                            Text("Retirar del Público")
+                        },
+                        onClick = {
+                            onEditClick(batch)
+                            expanded = false
                         }
-                    }
+                    )
 
-                    // CASE 2: RED/EXPIRED + DISCOUNTED → Info indicator + Delete button
-                    status == com.decathlon.smartnutristock.domain.model.SemaphoreStatus.EXPIRED &&
-                    batch.actionTaken == com.decathlon.smartnutristock.domain.model.WorkflowAction.DISCOUNTED -> {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // Non-interactive indicator
-                            AssistChip(
-                                label = { Text("Descuento Aplicado") },
-                                onClick = {}, // Empty - not interactive
-                                modifier = Modifier.weight(1f)
-                            )
-                            // Delete button
-                            FilledTonalButton(
-                                onClick = { onDeleteClick(batch) },
-                                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.error,
-                                    contentColor = MaterialTheme.colorScheme.onError
-                                ),
-                                modifier = Modifier.heightIn(min = 48.dp)
+                    // Delete option
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
+                                    contentDescription = null
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Eliminar")
+                                Text(
+                                    "Eliminar",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
                             }
+                        },
+                        onClick = {
+                            onDeleteClick(batch)
+                            expanded = false
                         }
-                    }
+                    )
+                }
+            }
+        }
 
-                    // CASE 3: RED/EXPIRED + REMOVED → Delete button (already correct)
-                    status == com.decathlon.smartnutristock.domain.model.SemaphoreStatus.EXPIRED &&
-                    batch.actionTaken == com.decathlon.smartnutristock.domain.model.WorkflowAction.REMOVED -> {
+        // Action buttons (only for YELLOW and RED batches)
+        if (showActionButtons) {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            when {
+                // CASE 1: RED/EXPIRED + PENDING → Only "Retirar" button (NO discount)
+                status == SemaphoreStatus.EXPIRED &&
+                batch.actionTaken == WorkflowAction.PENDING -> {
+                    FilledTonalButton(
+                        onClick = { onToggleActionClick(batch) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Text(
+                            "Retirar del Público",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+
+                // CASE 2: RED/EXPIRED + DISCOUNTED → Info indicator + Delete button
+                status == SemaphoreStatus.EXPIRED &&
+                batch.actionTaken == WorkflowAction.DISCOUNTED -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Non-interactive indicator
+                        AssistChip(
+                            label = {
+                                Text(
+                                    "Descuento Aplicado",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            },
+                            onClick = {}, // Empty - not interactive
+                            modifier = Modifier.weight(1f),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                labelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        )
+                        // Delete button
                         FilledTonalButton(
                             onClick = { onDeleteClick(batch) },
                             colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
                                 containerColor = MaterialTheme.colorScheme.error,
                                 contentColor = MaterialTheme.colorScheme.onError
                             ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 48.dp)
+                            modifier = Modifier.heightIn(min = 48.dp),
+                            shape = MaterialTheme.shapes.medium
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
@@ -598,45 +550,87 @@ private fun BatchCard(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Eliminar")
+                            Text(
+                                "Eliminar",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
                         }
                     }
+                }
 
-                    // CASE 4: YELLOW + PENDING → Both buttons (keep existing behavior)
-                    status == com.decathlon.smartnutristock.domain.model.SemaphoreStatus.YELLOW &&
-                    batch.actionTaken == com.decathlon.smartnutristock.domain.model.WorkflowAction.PENDING -> {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // "Desc -20%" button
-                            FilledTonalButton(
-                                onClick = { onToggleActionClick(batch) },
-                                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                            ) {
-                                Text("Desc -20%")
-                            }
-                            // "Retirar" button
-                            FilledTonalButton(
-                                onClick = { onToggleActionClick(batch) },
-                                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                            ) {
-                                Text("Retirar")
-                            }
-                        }
+                // CASE 3: RED/EXPIRED + REMOVED → Delete button (already correct)
+                status == SemaphoreStatus.EXPIRED &&
+                batch.actionTaken == WorkflowAction.REMOVED -> {
+                    FilledTonalButton(
+                        onClick = { onDeleteClick(batch) },
+                        colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            "Eliminar",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
+                }
 
-                    // CASE 5: YELLOW + DISCOUNTED → Undo button (keep existing behavior)
-                    status == com.decathlon.smartnutristock.domain.model.SemaphoreStatus.YELLOW &&
-                    batch.actionTaken == com.decathlon.smartnutristock.domain.model.WorkflowAction.DISCOUNTED -> {
+                // CASE 4: YELLOW + PENDING → Both buttons (keep existing behavior)
+                status == SemaphoreStatus.YELLOW &&
+                batch.actionTaken == WorkflowAction.PENDING -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // "Desc -20%" button
                         FilledTonalButton(
                             onClick = { onToggleActionClick(batch) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 48.dp)
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                            shape = MaterialTheme.shapes.medium
                         ) {
-                            Text("Deshacer Dto")
+                            Text(
+                                "Desc -20%",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
                         }
+                        // "Retirar" button
+                        FilledTonalButton(
+                            onClick = { onToggleActionClick(batch) },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                            shape = MaterialTheme.shapes.medium
+                        ) {
+                            Text(
+                                "Retirar",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+
+                // CASE 5: YELLOW + DISCOUNTED → Undo button (keep existing behavior)
+                status == SemaphoreStatus.YELLOW &&
+                batch.actionTaken == WorkflowAction.DISCOUNTED -> {
+                    FilledTonalButton(
+                        onClick = { onToggleActionClick(batch) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Text(
+                            "Deshacer Dto",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
                 }
             }
@@ -646,6 +640,7 @@ private fun BatchCard(
 
 /**
  * Filter chips row for filtering batches by action state.
+ * Premium styling with MaterialTheme.shapes.medium and Plus Jakarta Sans typography.
  */
 @Composable
 private fun FilterChipsRow(
@@ -660,77 +655,71 @@ private fun FilterChipsRow(
     ) {
         AssistChip(
             onClick = { onFilterSelected(com.decathlon.smartnutristock.presentation.ui.history.ActionFilter.ALL) },
-            label = { Text("Todos") },
+            label = {
+                Text(
+                    "Todos",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
             colors = if (currentFilter == com.decathlon.smartnutristock.presentation.ui.history.ActionFilter.ALL) {
                 AssistChipDefaults.assistChipColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     labelColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             } else {
-                AssistChipDefaults.assistChipColors()
+                AssistChipDefaults.assistChipColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             },
+            shape = MaterialTheme.shapes.medium,
             modifier = Modifier.weight(1f)
         )
 
         AssistChip(
             onClick = { onFilterSelected(com.decathlon.smartnutristock.presentation.ui.history.ActionFilter.PENDING) },
-            label = { Text("Pendientes") },
+            label = {
+                Text(
+                    "Pendientes",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
             colors = if (currentFilter == com.decathlon.smartnutristock.presentation.ui.history.ActionFilter.PENDING) {
                 AssistChipDefaults.assistChipColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     labelColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             } else {
-                AssistChipDefaults.assistChipColors()
+                AssistChipDefaults.assistChipColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             },
+            shape = MaterialTheme.shapes.medium,
             modifier = Modifier.weight(1f)
         )
 
         AssistChip(
             onClick = { onFilterSelected(com.decathlon.smartnutristock.presentation.ui.history.ActionFilter.WITH_ACTION) },
-            label = { Text("Con acción") },
+            label = {
+                Text(
+                    "Con acción",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
             colors = if (currentFilter == com.decathlon.smartnutristock.presentation.ui.history.ActionFilter.WITH_ACTION) {
                 AssistChipDefaults.assistChipColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     labelColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             } else {
-                AssistChipDefaults.assistChipColors()
+                AssistChipDefaults.assistChipColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             },
+            shape = MaterialTheme.shapes.medium,
             modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-/**
- * Empty state component.
- */
-@Composable
-private fun EmptyState() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "📦",
-            style = MaterialTheme.typography.displayMedium
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "No hay lotes",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Escanea un producto para agregar un lote",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
     }
 }
@@ -764,7 +753,7 @@ private fun ErrorScreen(message: String) {
 }
 
 /**
- * Preview for BatchCard with PENDING action (YELLOW batch).
+ * Preview for BatchCardWithActions with PENDING action (YELLOW batch).
  */
 @Preview(showBackground = true)
 @Composable
@@ -781,7 +770,7 @@ private fun BatchCardPendingPreview() {
     )
 
     androidx.compose.material3.MaterialTheme {
-        BatchCard(
+        BatchCardWithActions(
             batch = batch,
             onEditClick = {},
             onDeleteClick = {},
@@ -791,7 +780,7 @@ private fun BatchCardPendingPreview() {
 }
 
 /**
- * Preview for BatchCard with DISCOUNTED action (YELLOW batch).
+ * Preview for BatchCardWithActions with DISCOUNTED action (YELLOW batch).
  */
 @Preview(showBackground = true)
 @Composable
@@ -808,7 +797,7 @@ private fun BatchCardDiscountedPreview() {
     )
 
     androidx.compose.material3.MaterialTheme {
-        BatchCard(
+        BatchCardWithActions(
             batch = batch,
             onEditClick = {},
             onDeleteClick = {},
@@ -818,7 +807,7 @@ private fun BatchCardDiscountedPreview() {
 }
 
 /**
- * Preview for BatchCard with REMOVED action (RED/EXPIRED batch).
+ * Preview for BatchCardWithActions with REMOVED action (RED/EXPIRED batch).
  * Shows the DELETE button (unidirectional flow).
  */
 @Preview(showBackground = true)
@@ -836,7 +825,7 @@ private fun BatchCardRemovedPreview() {
     )
 
     androidx.compose.material3.MaterialTheme {
-        BatchCard(
+        BatchCardWithActions(
             batch = batch,
             onEditClick = {},
             onDeleteClick = {},
@@ -846,7 +835,7 @@ private fun BatchCardRemovedPreview() {
 }
 
 /**
- * Preview for BatchCard with PENDING action (RED/EXPIRED batch).
+ * Preview for BatchCardWithActions with PENDING action (RED/EXPIRED batch).
  * Shows the RETIRAR button (which applies REMOVED action).
  */
 @Preview(showBackground = true)
@@ -864,7 +853,7 @@ private fun BatchCardRedPendingPreview() {
     )
 
     androidx.compose.material3.MaterialTheme {
-        BatchCard(
+        BatchCardWithActions(
             batch = batch,
             onEditClick = {},
             onDeleteClick = {},
@@ -874,7 +863,7 @@ private fun BatchCardRedPendingPreview() {
 }
 
 /**
- * Preview for BatchCard with DISCOUNTED action (RED/EXPIRED batch).
+ * Preview for BatchCardWithActions with DISCOUNTED action (RED/EXPIRED batch).
  * Shows the hybrid state: non-interactive "Descuento Aplicado" chip + RED "Eliminar" button.
  */
 @Preview(name = "BatchCard - RED/EXPIRED + DISCOUNTED (Hybrid)", showBackground = true)
@@ -892,7 +881,7 @@ private fun BatchCardRedDiscountedPreview() {
     )
 
     androidx.compose.material3.MaterialTheme {
-        BatchCard(
+        BatchCardWithActions(
             batch = batch,
             onEditClick = {},
             onDeleteClick = {},

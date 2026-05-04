@@ -263,7 +263,7 @@ class SemaphoreIntegrationTest {
         val uiStateList = mutableListOf<DashboardUiState>()
 
         countersFlow.collect { counters ->
-            uiStateList.add(DashboardUiState.Success(counters))
+            uiStateList.add(DashboardUiState.Success(counters = counters, batches = emptyList()))
         }
 
         // Then: UI state should contain correct expired counter

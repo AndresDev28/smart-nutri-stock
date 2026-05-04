@@ -16,8 +16,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -28,6 +27,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.painterResource
+import com.decathlon.smartnutristock.R
+import com.decathlon.smartnutristock.presentation.ui.components.PremiumButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -110,20 +112,30 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // Official App Logo
+            androidx.compose.foundation.Image(
+                painter = painterResource(id = R.drawable.ic_app_logo),
+                contentDescription = "Smart Nutri-Stock Logo",
+                modifier = Modifier.size(120.dp)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // App Title
             Text(
                 text = "Smart Nutri-Stock",
-                style = MaterialTheme.typography.headlineLarge,
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Subtitle/Tagline
             Text(
-                text = "Iniciar Sesión",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                text = "Gestión de inventario inteligente",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag("login_subtitle")
             )
 
@@ -137,7 +149,8 @@ fun LoginScreen(
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Email,
-                        contentDescription = "Email icon"
+                        contentDescription = "Email icon",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
                 keyboardOptions = KeyboardOptions(
@@ -145,7 +158,8 @@ fun LoginScreen(
                 ),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = uiState !is Loading
+                enabled = uiState !is Loading,
+                shape = MaterialTheme.shapes.medium
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -158,7 +172,8 @@ fun LoginScreen(
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Lock,
-                        contentDescription = "Lock icon"
+                        contentDescription = "Lock icon",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
                 trailingIcon = {
@@ -173,7 +188,8 @@ fun LoginScreen(
                                 "Ocultar contraseña"
                             } else {
                                 "Mostrar contraseña"
-                            }
+                            },
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
@@ -187,35 +203,34 @@ fun LoginScreen(
                 ),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = uiState !is Loading
+                enabled = uiState !is Loading,
+                shape = MaterialTheme.shapes.medium
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Login Button
-            Button(
-                onClick = { viewModel.onLoginClick() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp) // Thumb zone optimized for XCover7
-                    .testTag("login_button"),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                ),
-                enabled = uiState !is Loading && email.isNotBlank() && password.isNotBlank()
-            ) {
-                if (uiState is Loading) {
+            // Login Button - PremiumButton with loading state
+            if (uiState is Loading) {
+                // Show loading spinner
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .testTag("login_button"),
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Text(
-                        text = "Iniciar Sesión",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
+            } else {
+                PremiumButton(
+                    text = "Iniciar Sesión",
+                    onClick = { viewModel.onLoginClick() },
+                    modifier = Modifier.testTag("login_button"),
+                    enabled = email.isNotBlank() && password.isNotBlank()
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -224,7 +239,7 @@ fun LoginScreen(
             Text(
                 text = "© Decathlon Gandía - Tienda 1620",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

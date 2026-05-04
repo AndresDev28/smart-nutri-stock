@@ -1,11 +1,50 @@
 package com.decathlon.smartnutristock.presentation.ui.theme
 
+import androidx.compose.material3.ColorScheme
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+// "Inventario Vivo" Palette - Base colors
+val CreamBackground = Color(0xFFF8FAFC)
+val RoyalBluePrimary = Color(0xFF2563EB)
+val RoyalBlueDark = Color(0xFF1E40AF)
+val StatusTeal = Color(0xFF14B8A6)      // Stock óptimo / GREEN
+val StatusAmber = Color(0xFFF59E0B)     // Stock por caducar / YELLOW
+val StatusDeepRed = Color(0xFFDC2626)   // Sin caducado / RED
+val CardWhite = Color(0xFFFFFFFF)
+val TextDark = Color(0xFF1E293B)
+val TextGray = Color(0xFF64748B)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+// Custom shadow color for Industrial Elegance look
+val ShadowColor = Color(0xFF000000).copy(alpha = 0.08f)
+
+// Status color accessor functions for use in Composable contexts
+@Composable
+fun statusTeal(): Color = StatusTeal
+
+@Composable
+fun statusAmber(): Color = StatusAmber
+
+@Composable
+fun statusDeepRed(): Color = StatusDeepRed
+
+@Composable
+fun statusGreen(): Color = StatusTeal // Alias for semantic clarity
+
+// Material 3 Light Color Scheme mapping
+private val LightColorScheme = androidx.compose.material3.lightColorScheme(
+    primary = RoyalBluePrimary,
+    onPrimary = Color.White,
+    primaryContainer = RoyalBlueDark,
+    onPrimaryContainer = Color.White,
+    secondary = StatusTeal,
+    background = CreamBackground,
+    surface = CardWhite,
+    onBackground = TextDark,
+    onSurface = TextDark,
+    error = StatusDeepRed,
+    onError = Color.White,
+    surfaceVariant = CreamBackground,
+    onSurfaceVariant = TextGray,
+    outline = TextGray.copy(alpha = 0.2f)
+)

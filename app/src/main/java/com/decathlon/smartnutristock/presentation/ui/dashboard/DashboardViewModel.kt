@@ -3,30 +3,36 @@ package com.decathlon.smartnutristock.presentation.ui.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.decathlon.smartnutristock.domain.usecase.GetSemaphoreCountersUseCase
+import com.decathlon.smartnutristock.domain.usecase.GetAllBatchesUseCase
+import com.decathlon.smartnutristock.domain.repository.AuthRepository
 import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
+import com.decathlon.smartnutristock.domain.model.Batch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.combine
 import javax.inject.Inject
 
 /**
- * ViewModel for the Dashboard screen.
+ * ViewModel for Dashboard screen.
  *
  * Responsibilities:
  * - Observes semaphore counters from GetSemaphoreCountersUseCase
+ * - Observes product batches from GetAllBatchesUseCase
+ * - Observes current user from AuthRepository for dynamic greeting
  * - Exposes reactive state via StateFlow
  * - Handles loading and error states
  *
- * Theme Colors (from CalculateStatusUseCase):
- * - 🔴 Red: #FF4444 (expired, days ≤ 0)
- * - 🟡 Yellow: #FFC107 (warning, 1-7 days)
- * - 🟢 Green: #4CAF50 (safe, 8+ days)
+ * SSOT: All status logic is calculated by CalculateStatusUseCase in domain layer.
+ * UI renders state, never calculates status.
  */
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    private val getSemaphoreCountersUseCase: GetSemaphoreCountersUseCase
+    private val getSemaphoreCountersUseCase: GetSemaphoreCountersUseCase,
+    private val getAllBatchesUseCase: GetAllBatchesUseCase,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     // UI State
@@ -35,33 +41,57 @@ class DashboardViewModel @Inject constructor(
     )
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
+    // User email for dynamic greeting
+    private val _userEmail = MutableStateFlow<String?>(null)
+    val userEmail: StateFlow<String?> = _userEmail.asStateFlow()
+
     init {
-        // Load semaphore counters on initialization
-        loadSemaphoreCounters()
+        // Load semaphore counters and batches on initialization
+        loadDashboardData()
+        // Load current user email for dynamic greeting
+        loadUserEmail()
     }
 
     /**
-     * Load semaphore counters from UseCase.
+     * Load current user email for dynamic greeting.
      */
-    private fun loadSemaphoreCounters() {
+    private fun loadUserEmail() {
+        viewModelScope.launch {
+            val user = authRepository.getCurrentSession()
+            _userEmail.value = user?.email
+        }
+    }
+
+    /**
+     * Load semaphore counters and product batches from UseCases.
+     */
+    private fun loadDashboardData() {
         viewModelScope.launch {
             _uiState.value = DashboardUiState.Loading
 
             try {
-                getSemaphoreCountersUseCase().collect { counters ->
-                    _uiState.value = DashboardUiState.Success(counters)
+                combine(
+                    getSemaphoreCountersUseCase(),
+                    getAllBatchesUseCase()
+                ) { counters, batches ->
+                    Pair(counters, batches)
+                }.collect { (counters, batches) ->
+                    _uiState.value = DashboardUiState.Success(
+                        counters = counters,
+                        batches = batches
+                    )
                 }
             } catch (e: Exception) {
-                _uiState.value = DashboardUiState.Error(e.message ?: "Error al cargar contadores")
+                _uiState.value = DashboardUiState.Error(e.message ?: "Error al cargar datos")
             }
         }
     }
 
     /**
-     * Reload semaphore counters (user-triggered refresh).
+     * Reload semaphore counters and batches (user-triggered refresh).
      */
     fun refresh() {
-        loadSemaphoreCounters()
+        loadDashboardData()
     }
 }
 
@@ -71,6 +101,9 @@ class DashboardViewModel @Inject constructor(
  */
 sealed class DashboardUiState {
     data object Loading : DashboardUiState()
-    data class Success(val counters: SemaphoreCounters) : DashboardUiState()
+    data class Success(
+        val counters: SemaphoreCounters,
+        val batches: List<Batch>
+    ) : DashboardUiState()
     data class Error(val message: String) : DashboardUiState()
 }
