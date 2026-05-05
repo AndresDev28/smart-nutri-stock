@@ -40,8 +40,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -227,61 +225,6 @@ fun DashboardScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Smart Nutri-Stock",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                },
-                actions = {
-                    // Profile menu button
-                    Box {
-                        IconButton(
-                            onClick = { showMenu = true }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = "Perfil",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-
-                        // DropdownMenu with logout option
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = "Cerrar Sesión",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Logout,
-                                        contentDescription = "Cerrar Sesión",
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                },
-                                onClick = {
-                                    showMenu = false
-                                    viewModel.logout()
-                                }
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
-            )
-        },
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState)
         }
@@ -312,7 +255,10 @@ fun DashboardScreen(
                         cameraPermissionGranted = cameraPermissionGranted,
                         cameraPermissionLauncher = cameraPermissionLauncher,
                         context = context,
-                        userEmail = userEmail
+                        userEmail = userEmail,
+                        showMenu = showMenu,
+                        onMenuToggle = { showMenu = it },
+                        onLogout = { viewModel.logout() }
                     )
                 }
 
@@ -337,7 +283,10 @@ private fun DashboardContent(
     cameraPermissionGranted: Boolean,
     cameraPermissionLauncher: androidx.activity.result.ActivityResultLauncher<String>,
     context: Context,
-    userEmail: String?
+    userEmail: String?,
+    showMenu: Boolean,
+    onMenuToggle: (Boolean) -> Unit,
+    onLogout: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -352,35 +301,80 @@ private fun DashboardContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Official App Logo
-            androidx.compose.foundation.Image(
-                painter = painterResource(id = R.drawable.ic_app_logo),
-                contentDescription = "Smart Nutri-Stock Logo",
-                modifier = Modifier.size(48.dp)
-            )
-
-            Column {
-                // Dynamic greeting with user email
-                Text(
-                    text = if (userEmail != null) {
-                        "Hola, ${userEmail.substringBefore("@")}"
-                    } else {
-                        "Hola"
-                    },
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+            // Left side: Logo and greeting
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Official App Logo
+                androidx.compose.foundation.Image(
+                    painter = painterResource(id = R.drawable.ic_app_logo),
+                    contentDescription = "Smart Nutri-Stock Logo",
+                    modifier = Modifier.size(48.dp)
                 )
 
-                // App name as subtitle
-                Text(
-                    text = "Smart Nutri-Stock",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Column {
+                    // Dynamic greeting with user email
+                    Text(
+                        text = if (userEmail != null) {
+                            "Hola, ${userEmail.substringBefore("@")}"
+                        } else {
+                            "Hola"
+                        },
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    // App name as subtitle
+                    Text(
+                        text = "Smart Nutri-Stock",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Right side: Profile menu button
+            Box {
+                IconButton(
+                    onClick = { onMenuToggle(true) }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Perfil",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                // DropdownMenu with logout option
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { onMenuToggle(false) }
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = "Cerrar Sesión",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Logout,
+                                contentDescription = "Cerrar Sesión",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        },
+                        onClick = {
+                            onMenuToggle(false)
+                            onLogout()
+                        }
+                    )
+                }
             }
         }
 
