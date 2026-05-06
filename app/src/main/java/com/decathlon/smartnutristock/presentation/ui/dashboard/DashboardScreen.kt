@@ -25,20 +25,25 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.Text
 import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -152,6 +157,20 @@ fun DashboardScreen(
     // Collect UI state from ViewModel
     val uiState by viewModel.uiState.collectAsState()
     val userEmail by viewModel.userEmail.collectAsState()
+    val logoutEvent by viewModel.logoutEvent.collectAsState()
+
+    // Handle logout event - navigate to login and clear backstack
+    LaunchedEffect(logoutEvent) {
+        if (logoutEvent) {
+            navController.navigate("login") {
+                popUpTo("login") { inclusive = true }
+            }
+            viewModel.clearLogoutEvent()
+        }
+    }
+
+    // Dropdown menu state for profile menu
+    var showMenu by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         // Auto-refresh when screen comes into view
@@ -235,7 +254,10 @@ fun DashboardScreen(
                         cameraPermissionGranted = cameraPermissionGranted,
                         cameraPermissionLauncher = cameraPermissionLauncher,
                         context = context,
-                        userEmail = userEmail
+                        userEmail = userEmail,
+                        showMenu = showMenu,
+                        onMenuToggle = { showMenu = it },
+                        onLogout = { viewModel.logout() }
                     )
                 }
 
@@ -260,7 +282,10 @@ private fun DashboardContent(
     cameraPermissionGranted: Boolean,
     cameraPermissionLauncher: androidx.activity.result.ActivityResultLauncher<String>,
     context: Context,
-    userEmail: String?
+    userEmail: String?,
+    showMenu: Boolean,
+    onMenuToggle: (Boolean) -> Unit,
+    onLogout: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -275,35 +300,81 @@ private fun DashboardContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Official App Logo
-            androidx.compose.foundation.Image(
-                painter = painterResource(id = R.drawable.ic_app_logo),
-                contentDescription = "Smart Nutri-Stock Logo",
-                modifier = Modifier.size(48.dp)
-            )
-
-            Column {
-                // Dynamic greeting with user email
-                Text(
-                    text = if (userEmail != null) {
-                        "Hola, ${userEmail.substringBefore("@")}"
-                    } else {
-                        "Hola"
-                    },
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+            // Left side: Logo and greeting
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Official App Logo
+                androidx.compose.foundation.Image(
+                    painter = painterResource(id = R.drawable.ic_app_logo),
+                    contentDescription = "Smart Nutri-Stock Logo",
+                    modifier = Modifier.size(48.dp)
                 )
 
-                // App name as subtitle
-                Text(
-                    text = "Smart Nutri-Stock",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Column {
+                    // Dynamic greeting with user email
+                    Text(
+                        text = if (userEmail != null) {
+                            "Hola, ${userEmail.substringBefore("@")}"
+                        } else {
+                            "Hola"
+                        },
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    // App name as subtitle
+                    Text(
+                        text = "Smart Nutri-Stock",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Right side: Profile menu button
+            Box {
+                IconButton(
+                    onClick = { onMenuToggle(true) }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Perfil",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                // DropdownMenu with logout option
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { onMenuToggle(false) }
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = "Cerrar Sesión",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Logout,
+                                contentDescription = "Cerrar Sesión",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        },
+                        onClick = {
+                            onMenuToggle(false)
+                            onLogout()
+                        }
+                    )
+                }
             }
         }
 

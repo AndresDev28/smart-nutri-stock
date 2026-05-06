@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.decathlon.smartnutristock.data.local.encrypted.EncryptedSessionManager
 import com.decathlon.smartnutristock.domain.repository.AuthRepository
 import com.decathlon.smartnutristock.domain.usecase.ClaimOrphanRecordsUseCase
+import com.decathlon.smartnutristock.domain.usecase.TriggerSyncUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +18,8 @@ import javax.inject.Inject
 class LoginViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val sessionManager: EncryptedSessionManager,
-    private val claimOrphanRecordsUseCase: ClaimOrphanRecordsUseCase
+    private val claimOrphanRecordsUseCase: ClaimOrphanRecordsUseCase,
+    private val triggerSyncUseCase: TriggerSyncUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Initial)
@@ -44,6 +46,7 @@ class LoginViewModel @Inject constructor(
             result.fold(
                 onSuccess = {
                     claimOrphanRecords()
+                    triggerImmediateSync()
                     _uiState.value = LoginUiState.Success
                 },
                 onFailure = { _uiState.value = LoginUiState.Error(it.message ?: "Login failed") }
@@ -63,6 +66,15 @@ class LoginViewModel @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "Orphan cleanup: Failed after login")
             }
+        }
+    }
+
+    private suspend fun triggerImmediateSync() {
+        val storeId = sessionManager.getStoreId() ?: "1620"
+        try {
+            triggerSyncUseCase(storeId)
+        } catch (e: Exception) {
+            Timber.e(e, "Immediate sync: Failed to trigger after login")
         }
     }
 }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.decathlon.smartnutristock.domain.usecase.GetSemaphoreCountersUseCase
 import com.decathlon.smartnutristock.domain.usecase.GetAllBatchesUseCase
+import com.decathlon.smartnutristock.domain.usecase.LogoutUseCase
 import com.decathlon.smartnutristock.domain.repository.AuthRepository
 import com.decathlon.smartnutristock.domain.model.SemaphoreCounters
 import com.decathlon.smartnutristock.domain.model.Batch
@@ -32,6 +33,7 @@ import javax.inject.Inject
 class DashboardViewModel @Inject constructor(
     private val getSemaphoreCountersUseCase: GetSemaphoreCountersUseCase,
     private val getAllBatchesUseCase: GetAllBatchesUseCase,
+    private val logoutUseCase: LogoutUseCase,
     private val authRepository: AuthRepository
 ) : ViewModel() {
 
@@ -44,6 +46,10 @@ class DashboardViewModel @Inject constructor(
     // User email for dynamic greeting
     private val _userEmail = MutableStateFlow<String?>(null)
     val userEmail: StateFlow<String?> = _userEmail.asStateFlow()
+
+    // One-time event for logout navigation
+    private val _logoutEvent = MutableStateFlow<Boolean>(false)
+    val logoutEvent: StateFlow<Boolean> = _logoutEvent.asStateFlow()
 
     init {
         // Load semaphore counters and batches on initialization
@@ -92,6 +98,30 @@ class DashboardViewModel @Inject constructor(
      */
     fun refresh() {
         loadDashboardData()
+    }
+
+    /**
+     * Logout user.
+     *
+     * Calls LogoutUseCase which clears the session and updates auth state.
+     * Triggers logout event for navigation to login screen.
+     */
+    fun logout() {
+        viewModelScope.launch {
+            val result = logoutUseCase.logout()
+            if (result.isSuccess) {
+                // Trigger logout navigation event
+                _logoutEvent.value = true
+            }
+        }
+    }
+
+    /**
+     * Clear logout event after navigation is handled.
+     * This prevents re-navigation on recomposition.
+     */
+    fun clearLogoutEvent() {
+        _logoutEvent.value = false
     }
 }
 
