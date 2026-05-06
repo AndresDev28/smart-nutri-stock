@@ -4,15 +4,13 @@ import com.decathlon.smartnutristock.data.dao.ProductCatalogDao
 import com.decathlon.smartnutristock.data.dao.StockDao
 import com.decathlon.smartnutristock.data.entity.ActiveStockEntity
 import com.decathlon.smartnutristock.data.entity.ProductCatalogEntity
+import com.decathlon.smartnutristock.data.remote.SupabaseActiveStock
+import com.decathlon.smartnutristock.data.remote.SyncRemoteDataSource
 import com.decathlon.smartnutristock.domain.model.Batch
 import com.decathlon.smartnutristock.domain.model.SyncResult
 import com.decathlon.smartnutristock.domain.repository.SyncRepository
 import com.decathlon.smartnutristock.domain.usecase.CalculateStatusUseCase
-import io.github.jan.supabase.postgrest.Postgrest
-import io.github.jan.supabase.postgrest.from
-import io.github.jan.supabase.postgrest.rpc
 import kotlinx.coroutines.flow.first
-import kotlinx.serialization.Serializable
 import timber.log.Timber
 import java.time.Clock
 import java.time.Instant
@@ -21,41 +19,7 @@ import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Supabase row format for sync operations.
- *
- * Matches the active_stocks table schema in Supabase exactly.
- *
- * @property id Unique identifier for this batch (uuid)
- * @property ean 13-digit EAN code of product
- * @property product_name Name of the product from the catalog
- * @property quantity Number of units in this batch
- * @property expiry_date Expiry date of this batch (ISO-8601 date string, e.g., "2026-04-23")
- * @property status Semaphore status (GREEN, YELLOW, EXPIRED)
- * @property action_taken Workflow action taken on this batch (PENDING, DISCOUNTED, REMOVED)
- * @property user_id User ID who created/modified this batch (uuid)
- * @property store_id Store ID for multitenancy (default "1620" for Decathlon Gandía)
- * @property version Optimistic lock version for conflict resolution (default 1)
- * @property is_dirty Flag indicating if this batch has unsynced changes (0 = synced, 1 = dirty)
- * @property synced_at Timestamp when this batch was last synced with Supabase (ISO-8601 string)
- * @property created_at Timestamp when this batch was first created (ISO-8601 string)
- */
-@Serializable
-private data class SupabaseActiveStock(
-    val id: String,
-    val ean: String,
-    val product_name: String,
-    val quantity: Int,
-    val expiry_date: String,
-    val status: String,
-    val action_taken: String = "PENDING",
-    val user_id: String? = null,
-    val store_id: String = "1620",
-    val version: Int = 1,
-    val is_dirty: Int = 0,
-    val synced_at: String? = null,
-    val created_at: String? = null
-)
+
 
 /**
  * Implementation of SyncRepository using Supabase Postgrest and Room.
@@ -66,14 +30,14 @@ private data class SupabaseActiveStock(
  * - Applies conflict resolution using version number
  * - Marks records as synced in Room after successful sync
  *
- * @property postgrest Supabase Postgrest client
+ * @property remoteDataSource Remote data source for Supabase operations
  * @property stockDao Room StockDao for local database operations
  * @property productCatalogDao Room ProductCatalogDao for product name lookups
  * @property calculateStatusUseCase Use case to calculate semaphore status
  */
 @Singleton
 class SyncRepositoryImpl @Inject constructor(
-    private val postgrest: Postgrest,
+    private val remoteDataSource: SyncRemoteDataSource,
     private val stockDao: StockDao,
     private val productCatalogDao: ProductCatalogDao,
     private val calculateStatusUseCase: CalculateStatusUseCase
@@ -144,7 +108,7 @@ class SyncRepositoryImpl @Inject constructor(
             }
 
             // 3. Upsert to Supabase
-            postgrest["active_stocks"].upsert(supabaseRecords)
+            remoteDataSource.upsertActiveStocks(supabaseRecords)
 
             // 4. Mark ONLY pushed records as synced in Room
             // Records skipped (no catalog name) stay dirty for retry on next sync cycle
@@ -195,15 +159,7 @@ class SyncRepositoryImpl @Inject constructor(
             // 1. Query Supabase for changes since last sync
             val lastSyncedAtStr = lastSyncedAt.toString()
 
-            val response = postgrest["active_stocks"]
-                .select {
-                    filter {
-                        eq("store_id", storeId)
-                        gt("synced_at", lastSyncedAtStr)
-                    }
-                }
-
-            val supabaseRecords = response.decodeList<SupabaseActiveStock>()
+            val supabaseRecords = remoteDataSource.fetchActiveStocks(storeId, lastSyncedAtStr)
 
             if (supabaseRecords.isEmpty()) {
                 return SyncResult.Success(0)
