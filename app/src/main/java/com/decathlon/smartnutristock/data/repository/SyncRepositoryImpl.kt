@@ -123,21 +123,44 @@ class SyncRepositoryImpl @Inject constructor(
             }
 
             // 2. Map to Supabase format (resolve product names from catalog)
-            val supabaseRecords = dirtyEntities.map { entity ->
-                val productName = productCatalogDao.findByEan(entity.ean)?.name ?: "Unknown"
+            // IMPORTANT: Skip records without a valid product name in the catalog.
+            // Pushing "Unknown" pollutes Supabase and causes "Producto desconocido" on pull.
+            val supabaseRecords = dirtyEntities.mapNotNull { entity ->
+                val catalogEntry = productCatalogDao.findByEan(entity.ean)
+                val productName = catalogEntry?.name
+
+                if (productName.isNullOrBlank() || productName == "Unknown") {
+                    Timber.w("Sync: Skipping push for EAN ${entity.ean} — no valid product name in catalog")
+                    return@mapNotNull null
+                }
+
                 val status = calculateStatusUseCase(entity.expiryDate, Clock.systemUTC())
                 entity.toSupabaseFormat(productName, status.name)
+            }
+
+            if (supabaseRecords.isEmpty()) {
+                Timber.i("Sync: All ${dirtyEntities.size} dirty records skipped (no valid product names)")
+                return SyncResult.Success(0)
             }
 
             // 3. Upsert to Supabase
             postgrest["active_stocks"].upsert(supabaseRecords)
 
-            // 4. Mark as synced in Room
-            val recordIds = dirtyEntities.map { entity -> entity.id }
+            // 4. Mark ONLY pushed records as synced in Room
+            // Records skipped (no catalog name) stay dirty for retry on next sync cycle
+            val pushedEans = supabaseRecords.map { it.ean }.toSet()
+            val pushedIds = dirtyEntities
+                .filter { it.ean in pushedEans }
+                .map { it.id }
             val now = Instant.now(Clock.systemUTC())
-            stockDao.markAsSynced(recordIds, now)
+            stockDao.markAsSynced(pushedIds, now)
 
-            SyncResult.Success(dirtyEntities.size)
+            val skippedCount = dirtyEntities.size - supabaseRecords.size
+            if (skippedCount > 0) {
+                Timber.w("Sync: Pushed ${supabaseRecords.size}, skipped $skippedCount (no catalog name)")
+            }
+
+            SyncResult.Success(supabaseRecords.size)
         } catch (e: Exception) {
             Timber.e(e, "Sync: Failed to push dirty records")
             Timber.tag("SYNC_ERROR").e(e, "Error subiendo datos: ${e.message}")
@@ -162,6 +185,13 @@ class SyncRepositoryImpl @Inject constructor(
      */
     override suspend fun pullRemoteChanges(storeId: String, lastSyncedAt: Instant): SyncResult {
         return try {
+            // 0. One-shot cleanup: Remove "Unknown" garbage from product_catalog
+            //    (caused by the old push bug that sent "Unknown" as product_name)
+            val cleaned = productCatalogDao.removeGarbageEntries()
+            if (cleaned > 0) {
+                Timber.w("Sync: Cleaned $cleaned garbage entries from product_catalog")
+            }
+
             // 1. Query Supabase for changes since last sync
             val lastSyncedAtStr = lastSyncedAt.toString()
 
@@ -184,20 +214,41 @@ class SyncRepositoryImpl @Inject constructor(
 
             for (supabaseRecord in supabaseRecords) {
                 try {
+                    // Skip expired records — no point loading dead products into fresh install
+                    val expiryDate = parseFlexibleDate(supabaseRecord.expiry_date)
+                    val isExpired = expiryDate.isBefore(Instant.now(Clock.systemUTC()))
+                    if (supabaseRecord.status == "EXPIRED" && isExpired) {
+                        Timber.w("Sync: Skipping expired record ${supabaseRecord.id} (EAN: ${supabaseRecord.ean})")
+                        continue
+                    }
+
                     // Check if local record exists
                     val localRecord = stockDao.findById(supabaseRecord.id)
 
-                    // UPSERT product catalog to ensure UI can display the product name
-                    // This fixes the "Producto desconocido" issue when pulling from cloud
-                    productCatalogDao.insertOrReplace(
-                        ProductCatalogEntity(
-                            ean = supabaseRecord.ean,
-                            name = supabaseRecord.product_name,
-                            packSize = 1, // Default pack size
-                            createdAt = System.currentTimeMillis(),
-                            createdBy = 0L // Synced from cloud, no local user
+                    // UPSERT product catalog to ensure UI can display the product name.
+                    // Use EAN as fallback when name is "Unknown" or blank.
+                    // Never overwrite a good local name with a worse one.
+                    val incomingName = supabaseRecord.product_name
+                    val isValidName = incomingName.isNotBlank() && incomingName != "Unknown"
+                    val displayName = if (isValidName) incomingName else "EAN: ${supabaseRecord.ean}"
+
+                    val existingCatalog = productCatalogDao.findByEan(supabaseRecord.ean)
+                    val shouldUpsert = existingCatalog == null ||
+                        existingCatalog.name.isBlank() ||
+                        existingCatalog.name == "Unknown" ||
+                        existingCatalog.name.startsWith("EAN:")
+
+                    if (shouldUpsert) {
+                        productCatalogDao.insertOrReplace(
+                            ProductCatalogEntity(
+                                ean = supabaseRecord.ean,
+                                name = displayName,
+                                packSize = existingCatalog?.packSize ?: 1,
+                                createdAt = existingCatalog?.createdAt ?: System.currentTimeMillis(),
+                                createdBy = existingCatalog?.createdBy ?: 0L
+                            )
                         )
-                    )
+                    }
 
                     if (localRecord != null) {
                         // Conflict resolution: higher version wins

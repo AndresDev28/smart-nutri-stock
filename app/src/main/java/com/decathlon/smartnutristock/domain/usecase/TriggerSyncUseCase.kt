@@ -2,6 +2,7 @@ package com.decathlon.smartnutristock.domain.usecase
 
 import android.content.Context
 import com.decathlon.smartnutristock.data.worker.SyncScheduler
+import dagger.hilt.android.qualifiers.ApplicationContext
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -24,7 +25,7 @@ import javax.inject.Inject
  * @property context Application context for WorkManager (injected as @ApplicationContext)
  */
 class TriggerSyncUseCase @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context
 ) {
 
     /**
