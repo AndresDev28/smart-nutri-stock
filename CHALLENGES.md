@@ -497,15 +497,47 @@ When using an orchestrated multi-agent workflow where different agents handle di
 
 ---
 
+## 🐛 22. The Offline-First Sync Pipeline Poisoning (The "Unknown" Epidemic)
+
+### 🩺 The Symptom
+After a fresh login on a clean install, products loaded from Supabase appeared as "desconocido" (Unknown Product) in the UI. Expired products that had been deleted locally reappeared after every re-login. The sync pipeline was working mechanically (records flowed up and down) but the DATA QUALITY was corrupted.
+
+### 🕵️‍♂️ Root Cause
+Three interrelated issues in the sync architecture:
+
+1. **Push Pollution**: When the old sync code didn't find a product name in the local catalog, it used "Unknown" as a fallback and pushed that string to Supabase. Once in the cloud, "Unknown" became the "source of truth" for that product.
+
+2. **Pull Blindness**: The pull logic inserted ActiveStock records but never populated the local ProductCatalog table. The UI, which depends on a JOIN between ActiveStock and ProductCatalog to display product names, showed "desconocido" because the catalog had no entry for the EAN.
+
+3. **Undead Records**: The pull logic had no concept of "deleted" or "expired" records. Every time a user logged in from a fresh install, ALL records from Supabase were pulled, including expired products that had been soft-deleted locally. There was no mechanism to propagate deletions to the cloud or to respect local deletions during pull.
+
+### 🛠️ The Solution
+1. **Push Shield (Data Quality Gate)**: Changed `map` to `mapNotNull` in the push pipeline. Records without a valid product name in the local catalog are SKIPPED, not sent with "Unknown". Only pushed records get marked as synced. Skipped records stay dirty for retry.
+
+2. **Pull Catalog Population**: Before saving each ActiveStock record, the pull now upserts the ProductCatalog with the `product_name` from Supabase. Added a guard clause: if the incoming name is "Unknown" or blank, use the EAN as a fallback display name (e.g., "EAN: 3608018898465").
+
+3. **Undead Record Prevention**: Added a guard at the top of the pull loop that skips records where `status == "EXPIRED"` AND `expiry_date` is in the past. These dead products are no longer loaded into fresh installations.
+
+4. **Garbage Cleanup (One-Shot)**: Created `ProductCatalogDao.removeGarbageEntries()` that runs at the start of every pull to delete catalog entries with "Unknown" or blank names left by previous app versions.
+
+5. **Immediate Sync Trigger**: Created `TriggerSyncUseCase` (Domain layer) that fires `SyncScheduler.triggerImmediateSync()` after login, eliminating the 15-minute wait for the first periodic sync.
+
+6. **Cloud Cleanup**: Executed SQL directly in Supabase to remove all records with `product_name = 'Unknown'` and expired records, cleaning the source of truth.
+
+### 🧠 Engram (Lesson for the Future)
+> **In Offline-First architectures, the sync pipeline must enforce DATA QUALITY at every boundary.** (1) NEVER push placeholder values ("Unknown") to the cloud — if you don't have real data, DON'T PUSH. (2) The pull must populate ALL dependent tables (not just the main entity) — a Room JOIN without catalog data shows "desconocido". (3) Treat expired/deleted records as a first-class concern — implement filters, not just soft deletes. (4) After login, trigger an IMMEDIATE sync, don't wait for the periodic scheduler. (5) Clean your source of truth: garbage in the cloud will keep coming back until you delete it at the source.
+
+---
+
 ## 🚀 Architectural Conclusion
 
-Overcoming these 21 challenges has demonstrated that **Clean Architecture** isn't just about code organization — it's about **resilience**. By separating concerns into distinct layers (Domain, Data, Presentation), we were able to:
+Overcoming these 22 challenges has demonstrated that **Clean Architecture** isn't just about code organization — it's about **resilience**. By separating concerns into distinct layers (Domain, Data, Presentation), we were able to:
 
 - **Isolate failures**: When the notification didn't appear, we could test the Domain logic (status calculation) independently from the Data layer (notification building) and the Presentation layer (permission UI)
 - **Debug systematically**: The debug test button bypassed WorkManager entirely, proving the notification infrastructure worked while revealing the scheduling was the issue
 - **Adapt to OEM quirks**: The smart enqueue policy handles Samsung and Xiaomi's aggressive battery optimization without requiring per-device code
 
-The sync pipeline challenges (bugs 5–10) reinforced this resilience from a different angle:
+The sync pipeline challenges (bugs 5–10, and 22) reinforced this resilience from a different angle:
 
 - **Logging infrastructure is non-negotiable**: Bug 7 (Timber not planted) showed that without visible logs, debugging becomes guesswork. A properly initialized logging framework is the FIRST line of defense — without it, silent failures are invisible
 - **Debug buttons save hours**: The "TEST PUSH (DEBUG)" and "FORZAR SYNC" buttons on the Dashboard allowed us to bypass scheduling and test the sync pipeline directly, isolating whether the problem was in the worker scheduling or the sync logic itself
@@ -513,6 +545,7 @@ The sync pipeline challenges (bugs 5–10) reinforced this resilience from a dif
 - **Data integrity requires defensive serialization**: Bug 9 (storeId quotes) was a silent data corruption that propagated through SharedPreferences, Room, and into the sync query. Using `.jsonPrimitive.content` instead of `.toString()` and adding `.trim('"')` as a safety net prevents an entire class of bugs
 - **Schema verification is a prerequisite, not an afterthought**: Bug 10 proved that designing DTOs based on assumptions (matching the local Room schema) instead of verifying the remote database schema leads to guaranteed runtime failures. Always query the target schema first
 - **Naming collisions with third-party interfaces create subtle DI bugs**: Bug 8 showed that sharing a class name with a library interface confuses Hilt's dependency resolution. Prefixing implementations with their distinguishing characteristic (`EncryptedSessionManager`) prevents this entire category of issues
+- **Sync data quality gates prevent cascade failures**: Bug 22 revealed that offline-first sync pipelines must enforce data quality at EVERY boundary. Pushing placeholder values ("Unknown") poisons the cloud source of truth forever, pulling without populating dependent tables breaks JOIN queries, and ignoring expired/deleted records creates zombie data. The solution: skip invalid records on push, populate all tables on pull, filter expired records, trigger immediate sync after login, and clean the source of truth
 
 The UI/Presentation layer challenges (bugs 11–21) demonstrated that Compose's declarative paradigm introduces its own class of pitfalls:
 
@@ -525,4 +558,4 @@ The UI/Presentation layer challenges (bugs 11–21) demonstrated that Compose's 
 - **Compose's haptic API is intentionally limited**: Bug 18 demonstrated that `LocalHapticFeedback` only provides `LongPress`, not the full spectrum of Android haptics. The pragmatic solution is using `LocalView.current.performHapticFeedback(HapticFeedbackConstants.XXX)` to access View-based haptic constants
 - **Multi-agent orchestration creates import drift**: Bug 21 showed that when multiple AI agents work on the same codebase sequentially, each with fresh context, they introduce import inconsistencies. The solution is running compilation checks after each batch and maintaining an evolving "API contract" document
 
-The key takeaway: **Build your architecture so that each layer can be tested independently.** When a Xiaomi device kills your Worker at 06:00 AM, you need to know immediately whether the problem is the Worker, the notification, the permission, or the channel registration. When Supabase rejects your sync, you need to know whether it's the storeId, the schema, the auth, or the network. When multiple agents create import conflicts, you need an orchestrator that enforces shared conventions. Clean Architecture gave us that diagnostic precision across all 21 challenges.
+The key takeaway: **Build your architecture so that each layer can be tested independently.** When a Xiaomi device kills your Worker at 06:00 AM, you need to know immediately whether the problem is the Worker, the notification, the permission, or the channel registration. When Supabase rejects your sync, you need to know whether it's the storeId, the schema, the auth, or the network. When the sync pipeline poisons data quality, you need gates that prevent bad data from reaching the cloud. When multiple agents create import conflicts, you need an orchestrator that enforces shared conventions. Clean Architecture gave us that diagnostic precision across all 22 challenges.
