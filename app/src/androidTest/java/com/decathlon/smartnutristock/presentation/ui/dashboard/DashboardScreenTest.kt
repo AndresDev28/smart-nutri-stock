@@ -71,12 +71,14 @@ class DashboardScreenTest {
                         }
                         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
                         androidx.compose.material3.Text(
-                            text = "🟢",
-                            style = androidx.compose.material3.MaterialTheme.typography.titleMedium
-                        )
-                        androidx.compose.material3.Text(
-                            text = "Productos Seguros",
+                            text = "Óptimo",
                             style = androidx.compose.material3.MaterialTheme.typography.bodySmall
+                        )
+                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(4.dp))
+                        androidx.compose.material3.Text(
+                            text = "Productos en buen estado",
+                            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -101,12 +103,14 @@ class DashboardScreenTest {
                         }
                         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
                         androidx.compose.material3.Text(
-                            text = "🟡",
-                            style = androidx.compose.material3.MaterialTheme.typography.titleMedium
-                        )
-                        androidx.compose.material3.Text(
-                            text = "Por Vencer",
+                            text = "Caducar",
                             style = androidx.compose.material3.MaterialTheme.typography.bodySmall
+                        )
+                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(4.dp))
+                        androidx.compose.material3.Text(
+                            text = "Caducan pronto",
+                            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -131,12 +135,14 @@ class DashboardScreenTest {
                         }
                         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
                         androidx.compose.material3.Text(
-                            text = "🔴",
-                            style = androidx.compose.material3.MaterialTheme.typography.titleMedium
-                        )
-                        androidx.compose.material3.Text(
-                            text = "Expirados",
+                            text = "Caducados",
                             style = androidx.compose.material3.MaterialTheme.typography.bodySmall
+                        )
+                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(4.dp))
+                        androidx.compose.material3.Text(
+                            text = "Requieren atención",
+                            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -156,9 +162,14 @@ class DashboardScreenTest {
             .assertTextEquals("0")
 
         // Then - verify labels are displayed
-        composeTestRule.onNodeWithText("Productos Seguros").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Por Vencer").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Expirados").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Óptimo").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Caducar").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Caducados").assertIsDisplayed()
+
+        // Then - verify subtitles are displayed
+        composeTestRule.onNodeWithText("Productos en buen estado").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Caducan pronto").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Requieren atención").assertIsDisplayed()
     }
 
     @Test

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,11 +23,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -55,9 +60,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -384,31 +391,38 @@ private fun DashboardContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(androidx.compose.foundation.layout.IntrinsicSize.Max)
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Green Counter
             SummaryCard(
                 count = counters.green,
-                label = "Stock Óptimo",
+                label = "Óptimo",
                 statusColor = statusTeal(),
-                modifier = Modifier.weight(1f)
+                subtitle = "Productos en buen estado",
+                icon = Icons.Default.Check,
+                modifier = Modifier.weight(1f).fillMaxHeight()
             )
 
             // Yellow Counter
             SummaryCard(
                 count = counters.yellow,
-                label = "Por Vencer",
+                label = "Caducar",
                 statusColor = statusAmber(),
-                modifier = Modifier.weight(1f)
+                subtitle = "Caducan pronto",
+                icon = Icons.Default.Warning,
+                modifier = Modifier.weight(1f).fillMaxHeight()
             )
 
             // Red Counter
             SummaryCard(
                 count = counters.expired,
-                label = "Expirados",
+                label = "Caducados",
                 statusColor = statusDeepRed(),
-                modifier = Modifier.weight(1f)
+                subtitle = "Requieren atención",
+                icon = Icons.Default.Error,
+                modifier = Modifier.weight(1f).fillMaxHeight()
             )
         }
 
@@ -539,24 +553,32 @@ private fun DashboardContent(
 }
 
 /**
- * SummaryCard - Premium counter card with bubble effect.
+ * SummaryCard - Premium counter card with icon, count, title, and optional subtitle.
  *
  * Features:
- * - 64dp bubble with 10% alpha background circle
- * - Count in Bold 24sp at 100% color
- * - Label in bodySmall
+ * - 40dp circular icon container with 10% alpha background (when icon provided)
+ * - Count in Bold 28sp using onSurface color
+ * - Title in bodyMedium using status color
+ * - Optional subtitle in bodySmall with onSurfaceVariant color
  * - Uses theme colors (no hardcoded colors)
+ * - 16dp corner radius for premium feel
+ * - Fills parent height for uniform card sizing
+ *
+ * Backward Compatibility:
+ * - Works correctly when called without icon and subtitle parameters
  */
 @Composable
 private fun SummaryCard(
     count: Int,
     label: String,
     statusColor: androidx.compose.ui.graphics.Color,
+    subtitle: String? = null,
+    icon: ImageVector? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
+        modifier = modifier.fillMaxHeight(),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -570,34 +592,57 @@ private fun SummaryCard(
                 .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Bubble effect: 64dp box with 10% alpha background circle
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .background(
-                        color = statusColor.copy(alpha = 0.1f),
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = count.toString(),
-                    style = TextStyle(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 24.sp
-                    ),
-                    color = statusColor
-                )
+            // Icon block (top) - only when icon is provided
+            icon?.let {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            color = statusColor.copy(alpha = 0.1f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = statusColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
-            // Label
+            // Middle block: Count + Title
+            Text(
+                text = count.toString(),
+                style = TextStyle(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 28.sp
+                ),
+                color = statusColor
+            )
+
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = MaterialTheme.typography.bodyMedium,
+                color = statusColor
             )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Subtitle block (bottom) - only when subtitle is provided
+            subtitle?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
