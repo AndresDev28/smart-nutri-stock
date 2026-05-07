@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.7.0...v2.8.0) (2026-05-07)
+
+
+### Features
+
+* **ui:** redesign HistoryScreen card layout ([11ada65](https://github.com/AndresDev28/smart-nutri-stock/commit/11ada65f1b8145fdb20c7579a825be37a77d3ab5))
+
 ## [2.7.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.6.1...v2.7.0) (2026-05-06)
 
 
