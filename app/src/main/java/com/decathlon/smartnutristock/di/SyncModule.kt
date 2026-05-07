@@ -1,5 +1,7 @@
 package com.decathlon.smartnutristock.di
 
+import com.decathlon.smartnutristock.data.remote.SupabaseSyncRemoteDataSource
+import com.decathlon.smartnutristock.data.remote.SyncRemoteDataSource
 import com.decathlon.smartnutristock.data.repository.SyncRepositoryImpl
 import com.decathlon.smartnutristock.domain.repository.SyncRepository
 import dagger.Binds
@@ -13,7 +15,8 @@ import javax.inject.Singleton
 /**
  * Hilt module for synchronization dependencies.
  *
- * Binds SyncRepository interface to its implementation.
+ * Binds SyncRepository and SyncRemoteDataSource interfaces
+ * to their implementations.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -28,6 +31,16 @@ abstract class SyncModule {
     abstract fun bindSyncRepository(
         impl: SyncRepositoryImpl
     ): SyncRepository
+
+    /**
+     * Bind SyncRemoteDataSource interface to SupabaseSyncRemoteDataSource.
+     * Decouples the repository from the Supabase SDK for testability.
+     */
+    @Binds
+    @Singleton
+    abstract fun bindSyncRemoteDataSource(
+        impl: SupabaseSyncRemoteDataSource
+    ): SyncRemoteDataSource
 
     companion object {
         @Provides
