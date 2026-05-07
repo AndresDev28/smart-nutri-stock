@@ -56,6 +56,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -501,6 +502,9 @@ private fun DashboardContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         // T3.4: Quick Scan Epicenter Button (PremiumButton in bottom zone)
+        val gradientBrush = Brush.horizontalGradient(
+            colors = listOf(Color(0xFF1E40AF), Color(0xFF14B4A6))
+        )
         PremiumButton(
             text = "Escanear Producto",
             icon = Icons.Default.QrCodeScanner,
@@ -511,7 +515,8 @@ private fun DashboardContent(
                     cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                 }
             },
-            modifier = Modifier.padding(horizontal = 16.dp)
+            modifier = Modifier.padding(horizontal = 16.dp),
+            gradientBrush = gradientBrush
         )
 
         Spacer(modifier = Modifier.height(8.dp))
