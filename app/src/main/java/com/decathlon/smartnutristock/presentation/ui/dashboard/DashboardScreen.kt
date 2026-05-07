@@ -29,15 +29,12 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -176,8 +173,7 @@ fun DashboardScreen(
         }
     }
 
-    // Dropdown menu state for profile menu
-    var showMenu by remember { mutableStateOf(false) }
+
 
     LaunchedEffect(Unit) {
         // Auto-refresh when screen comes into view
@@ -262,8 +258,6 @@ fun DashboardScreen(
                         cameraPermissionLauncher = cameraPermissionLauncher,
                         context = context,
                         userEmail = userEmail,
-                        showMenu = showMenu,
-                        onMenuToggle = { showMenu = it },
                         onLogout = { viewModel.logout() }
                     )
                 }
@@ -273,6 +267,82 @@ fun DashboardScreen(
                     ErrorScreen(message = (uiState as DashboardUiState.Error).message)
                 }
             }
+        }
+    }
+}
+
+/**
+ * Dashboard header with two-section layout.
+ *
+ * Structure:
+ * - Top Row: Logo + "Smart Nutri-Stock" + Logout IconButton
+ * - Greeting Column: 3 lines with Material3 typography
+ *
+ * @param userEmail Nullable email for greeting. Extracts username with `?.substringBefore("@")`
+ * @param onLogout Callback invoked directly from logout IconButton
+ */
+@Composable
+private fun DashboardHeader(
+    userEmail: String?,
+    onLogout: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+    ) {
+        // Top Row: Logo, Title, and Logout Button
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.foundation.Image(
+                    painter = painterResource(id = R.drawable.ic_app_logo),
+                    contentDescription = "Smart Nutri-Stock Logo",
+                    modifier = Modifier.size(48.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "Smart Nutri-Stock",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            IconButton(onClick = onLogout) {
+                Icon(
+                    imageVector = Icons.Default.Logout,
+                    contentDescription = "Cerrar Sesión",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Greeting Column
+        Column {
+            Text(
+                text = if (userEmail != null) "Hola, ${userEmail.substringBefore("@")}!" else "Hola!",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Semáforo de Inventario",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Resumen actual de tu inventario",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -290,8 +360,6 @@ private fun DashboardContent(
     cameraPermissionLauncher: androidx.activity.result.ActivityResultLauncher<String>,
     context: Context,
     userEmail: String?,
-    showMenu: Boolean,
-    onMenuToggle: (Boolean) -> Unit,
     onLogout: () -> Unit
 ) {
     Column(
@@ -302,88 +370,11 @@ private fun DashboardContent(
     ) {
         Spacer(modifier = Modifier.height(16.dp))
 
-        // T3.2: Premium Header with Logo and Dynamic Greeting
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Left side: Logo and greeting
-            Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Official App Logo
-                androidx.compose.foundation.Image(
-                    painter = painterResource(id = R.drawable.ic_app_logo),
-                    contentDescription = "Smart Nutri-Stock Logo",
-                    modifier = Modifier.size(48.dp)
-                )
-
-                Column {
-                    // Dynamic greeting with user email
-                    Text(
-                        text = if (userEmail != null) {
-                            "Hola, ${userEmail.substringBefore("@")}"
-                        } else {
-                            "Hola"
-                        },
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                    // App name as subtitle
-                    Text(
-                        text = "Smart Nutri-Stock",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // Right side: Profile menu button
-            Box {
-                IconButton(
-                    onClick = { onMenuToggle(true) }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Perfil",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-
-                // DropdownMenu with logout option
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { onMenuToggle(false) }
-                ) {
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = "Cerrar Sesión",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Logout,
-                                contentDescription = "Cerrar Sesión",
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        },
-                        onClick = {
-                            onMenuToggle(false)
-                            onLogout()
-                        }
-                    )
-                }
-            }
-        }
+        // Dashboard Header with two-section layout
+        DashboardHeader(
+            userEmail = userEmail,
+            onLogout = onLogout
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
