@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.7.0](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.6.1...v2.7.0) (2026-05-06)
+
+
+### Features
+
+* **auth:** implement UI logout button in Dashboard ([97d31de](https://github.com/AndresDev28/smart-nutri-stock/commit/97d31de776056f3b719477c0b682c4e767d5a819))
+* **sync:** trigger immediate sync after login for instant product loading ([8cea73d](https://github.com/AndresDev28/smart-nutri-stock/commit/8cea73dbc870d16307e01913b33eba69f8e10542))
+
+
+### Bug Fixes
+
+* **sync:** populate local catalog when pulling from cloud ([0170a69](https://github.com/AndresDev28/smart-nutri-stock/commit/0170a69b22e7e7e182e55481ea604871d7550ceb))
+* **sync:** skip expired records on pull, handle Unknown names with EAN fallback ([e31b803](https://github.com/AndresDev28/smart-nutri-stock/commit/e31b803d972951746960a70a50c296ef11eb6872))
+* **ui:** integrate logout into existing header, remove duplicate TopAppBar ([efd972f](https://github.com/AndresDev28/smart-nutri-stock/commit/efd972f489c73af6cc462186aa793a8c3f2df885))
+
 ## [2.6.1](https://github.com/AndresDev28/smart-nutri-stock/compare/v2.6.0...v2.6.1) (2026-04-26)
 
 
