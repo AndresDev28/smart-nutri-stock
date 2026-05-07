@@ -26,8 +26,6 @@ import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -36,8 +34,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -74,18 +70,13 @@ import com.decathlon.smartnutristock.domain.model.SemaphoreStatus
 import com.decathlon.smartnutristock.domain.model.WorkflowAction
 import com.decathlon.smartnutristock.domain.export.ExportFormat
 import com.decathlon.smartnutristock.presentation.ui.components.EmptyState
-import com.decathlon.smartnutristock.presentation.ui.components.NutriCard
+import com.decathlon.smartnutristock.presentation.ui.components.HistoryCard
 import com.decathlon.smartnutristock.presentation.ui.components.ShimmerCard
 import com.decathlon.smartnutristock.presentation.ui.history.ExportState
 import com.decathlon.smartnutristock.presentation.ui.history.ExportFormatDialog
 import com.decathlon.smartnutristock.presentation.ui.scanner.BottomSheetMode
 import com.decathlon.smartnutristock.presentation.ui.scanner.ProductRegistrationBottomSheet
-import com.decathlon.smartnutristock.presentation.ui.theme.StatusTeal
-import com.decathlon.smartnutristock.presentation.ui.theme.StatusAmber
-import com.decathlon.smartnutristock.presentation.ui.theme.StatusDeepRed
 import kotlinx.coroutines.launch
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 /**
  * History screen for viewing all product batches.
@@ -380,113 +371,18 @@ private fun BatchCardWithActions(
 ) {
     val status = batch.status
 
-    val statusText = when (status) {
-        SemaphoreStatus.GREEN -> "Seguro"
-        SemaphoreStatus.YELLOW -> "Por vencer"
-        SemaphoreStatus.EXPIRED -> "Expirado"
-    }
-
-    val statusColor = when (status) {
-        SemaphoreStatus.GREEN -> StatusTeal
-        SemaphoreStatus.YELLOW -> StatusAmber
-        SemaphoreStatus.EXPIRED -> StatusDeepRed
-    }
-
     // Determine if action buttons should be shown (YELLOW or RED only)
     val showActionButtons = status == SemaphoreStatus.YELLOW ||
             status == SemaphoreStatus.EXPIRED
 
-    // Format expiry date for display
-    val expiryDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-        .withZone(ZoneId.of("UTC"))
-    val expiryDateText = expiryDateFormatter.format(batch.expiryDate)
-
-    // Dropdown menu state
-    var expanded by remember { mutableStateOf(false) }
-
     Column {
-        // NutriCard for main display
-        Box {
-            NutriCard(
-                productName = batch.name ?: "Producto desconocido",
-                ean = batch.ean,
-                quantity = batch.quantity,
-                expiryDate = expiryDateText,
-                status = status,
-                onClick = { expanded = true },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Three-dot menu (48dp tap target for XCover7) positioned on top-right
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(48.dp)
-            ) {
-                IconButton(
-                    onClick = { expanded = true },
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Más opciones",
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                // Dropdown menu
-                DropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
-                    // Edit option
-                    DropdownMenuItem(
-                        text = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = null
-                                )
-                                Text(
-                                    "Editar",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        },
-                        onClick = {
-                            onEditClick(batch)
-                            expanded = false
-                        }
-                    )
-
-                    // Delete option
-                    DropdownMenuItem(
-                        text = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = null
-                                )
-                                Text(
-                                    "Eliminar",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        },
-                        onClick = {
-                            onDeleteClick(batch)
-                            expanded = false
-                        }
-                    )
-                }
-            }
-        }
+        // HistoryCard for main display (replaces NutriCard)
+        HistoryCard(
+            batch = batch,
+            onEditClick = { onEditClick(batch) },
+            onDeleteClick = { onDeleteClick(batch) },
+            modifier = Modifier.fillMaxWidth()
+        )
 
         // Action buttons (only for YELLOW and RED batches)
         if (showActionButtons) {
