@@ -32,7 +32,7 @@ android {
         minSdk = 26  // API 26 required for java.time.DateTimeFormatter
         targetSdk = 34
         versionCode = 4
-        versionName = "2.4.0"
+        versionName = "2.7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
