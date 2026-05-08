@@ -25,7 +25,7 @@ Al empoderar al colaborador de tienda con tecnología avanzada, Smart Nutri-Stoc
 
 ---
 
-## ✨ Key Features (v2.5.0)
+## ✨ Key Features (v2.7.0)
 
 - **OCR Date Scanning**: Extracción automatizada de fechas de vencimiento mediante visión artificial (**Google ML Kit**), con soporte para normativa europea y años bisiestos.
 - **High-Speed Barcode Recognition**: Escaneo masivo de productos para entradas de stock ultra rápidas.
@@ -36,6 +36,9 @@ Al empoderar al colaborador de tienda con tecnología avanzada, Smart Nutri-Stoc
 - **Workflow de Acciones**: Gestión con un solo toque (Aplicar descuento, Retirar, Eliminar).
 - **Reporting Nativo**: Exportación de auditorías en **PDF con código de colores** y **CSV (RFC 4180)**.
 - **Rugged Hardware Support**: Optimizado específicamente para dispositivos **Samsung Galaxy XCover7**.
+- **Local Push Notifications (v2.6.0)**: WorkManager alerts para vencimientos diarios (POST_NOTIFICATIONS runtime permission).
+- **Auth (v2.7.0)**: Integración Supabase Auth, sesión persistente via DataStore, logout UI en Dashboard.
+- **Cloud Sync (v2.7.0)**: Sincronización inmediata post-login, arquitectura offline-first, catálogo de productos en pull.
 
 ---
 
@@ -46,6 +49,8 @@ Al empoderar al colaborador de tienda con tecnología avanzada, Smart Nutri-Stoc
 - **Local Storage**: Room Persistence Library (Offline-first).
 - **Intelligence**: Google ML Kit (Barcode & Text Recognition API).
 - **Dependency Injection**: Hilt.
+- **Cloud Backend**: Supabase Kotlin SDK (Gotrue for Auth, PostgREST for Sync).
+- **Local Persistence**: DataStore (session tokens), Room (offline-first database).
 - **Testing**: 130+ Unit & Integration Tests (TDD approach).
 
 ## 🏗 Architecture
@@ -64,8 +69,8 @@ Implementación estricta de **Clean Architecture** para garantizar escalabilidad
 - [x] **Workflow Actions**: Botones de acción dinámica en tarjetas de producto.
 - [x] **Reporting**: Exportación automatizada a PDF y CSV.
 - [x] **OCR Expiry Scanning**: Automatización total de la entrada de fechas (v2.5.0).
-- [ ] **Local Push Notifications**: Alertas proactivas diarias mediante WorkManager.
-- [ ] **Cloud Sync**: Sincronización multi-dispositivo en colaboración con Servicios Centrales.
+- [x] **Local Push Notifications**: Alertas proactivas diarias mediante WorkManager (v2.6.0).
+- [x] **Cloud Sync**: Sincronización inmediata post-login, offline-first, catálogo de productos (v2.7.0).
 
 ---
 
