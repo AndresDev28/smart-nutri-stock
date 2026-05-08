@@ -25,7 +25,7 @@ Al empoderar al colaborador de tienda con tecnología avanzada, Smart Nutri-Stoc
 
 ---
 
-## ✨ Key Features (v2.7.0)
+## ✨ Key Features (v2.8.0)
 
 - **OCR Date Scanning**: Extracción automatizada de fechas de vencimiento mediante visión artificial (**Google ML Kit**), con soporte para normativa europea y años bisiestos.
 - **High-Speed Barcode Recognition**: Escaneo masivo de productos para entradas de stock ultra rápidas.
