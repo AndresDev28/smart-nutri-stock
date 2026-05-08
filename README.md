@@ -31,7 +31,7 @@ Al empoderar al colaborador de tienda con tecnología avanzada, Smart Nutri-Stoc
 - **High-Speed Barcode Recognition**: Escaneo masivo de productos para entradas de stock ultra rápidas.
 - **Smart Semaphore System**: Cálculo dinámico del estado del lote:
   - 🔴 **Expirado/Hoy**: Prioridad crítica de retirada.
-  - 🟡 **Próximo a Vencer**: Alerta de acción comercial (1-3 días).
+  - 🟡 **Próximo a Vencer**: Alerta de acción comercial (1-7 días).
   - 🟢 **Seguro**: Rotación controlada.
 - **Workflow de Acciones**: Gestión con un solo toque (Aplicar descuento, Retirar, Eliminar).
 - **Reporting Nativo**: Exportación de auditorías en **PDF con código de colores** y **CSV (RFC 4180)**.
